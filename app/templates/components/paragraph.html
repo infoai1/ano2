@@ -1,0 +1,30 @@
+<div class="paragraph-card {{ para.type }}" id="para-{{ para.id }}">
+    <div class="paragraph-header">
+        <span>#{{ para.order_index + 1 }}</span>
+        <select class="paragraph-type-select"
+                hx-post="/api/paragraph/{{ para.id }}/type"
+                hx-trigger="change"
+                hx-swap="outerHTML"
+                hx-target="#para-{{ para.id }}"
+                name="type">
+            <option value="paragraph" {% if para.type == 'paragraph' %}selected{% endif %}>Paragraph</option>
+            <option value="heading" {% if para.type == 'heading' %}selected{% endif %}>Heading</option>
+            <option value="subheading" {% if para.type == 'subheading' %}selected{% endif %}>Subheading</option>
+            <option value="quote" {% if para.type == 'quote' %}selected{% endif %}>Quote</option>
+        </select>
+    </div>
+    <div class="paragraph-text"
+         contenteditable="true"
+         data-para-id="{{ para.id }}"
+         hx-post="/api/paragraph/{{ para.id }}/text"
+         hx-trigger="blur"
+         hx-vals='js:{"text": event.target.innerText}'
+         hx-swap="none">{{ para.text }}</div>
+    <div class="paragraph-actions">
+        <button class="delete-btn"
+                hx-delete="/api/paragraph/{{ para.id }}"
+                hx-confirm="Delete this paragraph?"
+                hx-target="#para-{{ para.id }}"
+                hx-swap="outerHTML">Delete</button>
+    </div>
+</div>

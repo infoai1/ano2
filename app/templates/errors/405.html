@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}405 - Method Not Allowed{% endblock %}
+
+{% block content %}
+<div class="error-page">
+    <div class="error-code">405</div>
+    <h1>Method Not Allowed</h1>
+    <p>The request method is not supported for this resource.</p>
+    <a href="{{ url_for('dashboard.index') }}" class="btn">Go to Dashboard</a>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .error-page {
+        text-align: center;
+        padding: 4rem 2rem;
+    }
+    .error-code {
+        font-size: 6rem;
+        font-weight: bold;
+        color: var(--primary);
+        opacity: 0.3;
+        line-height: 1;
+    }
+    .error-page h1 {
+        margin: 1rem 0;
+    }
+    .error-page p {
+        color: #666;
+        margin-bottom: 2rem;
+    }
+</style>
+{% endblock %}

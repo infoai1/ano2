@@ -1,0 +1,294 @@
+{% extends "base.html" %}
+
+{% block title %}{{ book.title }} - Editor{% endblock %}
+
+{% block header %}
+<header class="header">
+    <div>
+        <h1>{{ book.title }}</h1>
+        <span class="book-meta">by {{ book.author or 'Unknown' }}</span>
+    </div>
+    <nav>
+        <a href="{{ url_for('dashboard.index') }}">Dashboard</a>
+        <button class="btn" hx-post="/api/book/{{ book.slug }}/save" hx-swap="none" hx-indicator="#save-indicator">
+            Save
+        </button>
+        <span id="save-indicator" class="htmx-indicator">Saving...</span>
+        <a href="{{ url_for('auth.logout') }}">Logout</a>
+    </nav>
+</header>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .editor-container {
+        display: grid;
+        grid-template-columns: 250px 1fr;
+        gap: 2rem;
+        min-height: calc(100vh - 120px);
+    }
+
+    .sidebar {
+        background: white;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 1rem;
+        position: sticky;
+        top: 1rem;
+        height: fit-content;
+        max-height: calc(100vh - 140px);
+        overflow-y: auto;
+    }
+
+    .sidebar h2 {
+        font-size: 1rem;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .chapter-list {
+        list-style: none;
+    }
+
+    .chapter-list li {
+        padding: 0.5rem 0;
+    }
+
+    .chapter-list a {
+        color: var(--text);
+        text-decoration: none;
+    }
+
+    .chapter-list a:hover {
+        color: var(--primary);
+    }
+
+    .content-area {
+        padding-bottom: 2rem;
+    }
+
+    .chapter-section {
+        margin-bottom: 2rem;
+    }
+
+    .chapter-title {
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid var(--secondary);
+    }
+
+    .paragraph-card {
+        background: white;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 0.75rem;
+        transition: box-shadow 0.2s;
+    }
+
+    .paragraph-card:hover {
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    .paragraph-card.heading {
+        border-left: 4px solid var(--primary);
+    }
+
+    .paragraph-card.quote {
+        border-left: 4px solid var(--secondary);
+        background: #faf8f5;
+    }
+
+    .paragraph-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+        font-size: 0.85rem;
+        color: #666;
+    }
+
+    .paragraph-type-select {
+        padding: 0.25rem 0.5rem;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        font-size: 0.8rem;
+        background: white;
+    }
+
+    .paragraph-text {
+        line-height: 1.7;
+        white-space: pre-wrap;
+    }
+
+    .paragraph-text[contenteditable="true"]:focus {
+        outline: 2px solid var(--primary);
+        border-radius: 4px;
+        padding: 0.25rem;
+    }
+
+    .paragraph-actions {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 0.75rem;
+        opacity: 0;
+        transition: opacity 0.2s;
+    }
+
+    .paragraph-card:hover .paragraph-actions {
+        opacity: 1;
+    }
+
+    .paragraph-actions button {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        background: white;
+        cursor: pointer;
+    }
+
+    .paragraph-actions button:hover {
+        background: var(--background);
+    }
+
+    .paragraph-actions button.delete-btn:hover {
+        background: #fee2e2;
+        border-color: #fecaca;
+        color: #991b1b;
+    }
+
+    .book-meta {
+        font-size: 0.9rem;
+        color: rgba(255,255,255,0.8);
+        margin-left: 1rem;
+    }
+
+    .htmx-indicator {
+        display: none;
+    }
+
+    .htmx-request .htmx-indicator {
+        display: inline;
+    }
+
+    .toast {
+        position: fixed;
+        bottom: 2rem;
+        right: 2rem;
+        padding: 1rem 1.5rem;
+        border-radius: 8px;
+        background: var(--accent);
+        color: white;
+        animation: slideIn 0.3s ease;
+    }
+
+    @keyframes slideIn {
+        from {
+            transform: translateY(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: #666;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="editor-container">
+    <aside class="sidebar">
+        <h2>Chapters</h2>
+        <ul class="chapter-list">
+            {% for item in chapters_data %}
+            <li>
+                <a href="#chapter-{{ item.chapter.id }}">{{ item.chapter.title or 'Chapter ' ~ loop.index }}</a>
+                <span class="chapter-para-count">({{ item.paragraphs|length }})</span>
+            </li>
+            {% else %}
+            <li class="empty-state">No chapters</li>
+            {% endfor %}
+        </ul>
+    </aside>
+
+    <div class="content-area">
+        {% for item in chapters_data %}
+        <section class="chapter-section" id="chapter-{{ item.chapter.id }}">
+            <h2 class="chapter-title">{{ item.chapter.title or 'Chapter ' ~ loop.index }}</h2>
+
+            {% for para in item.paragraphs %}
+            <div class="paragraph-card {{ para.type }}" id="para-{{ para.id }}">
+                <div class="paragraph-header">
+                    <span>#{{ para.order_index + 1 }}</span>
+                    <select class="paragraph-type-select"
+                            hx-post="/api/paragraph/{{ para.id }}/type"
+                            hx-trigger="change"
+                            hx-swap="outerHTML"
+                            hx-target="#para-{{ para.id }}"
+                            name="type">
+                        <option value="paragraph" {% if para.type == 'paragraph' %}selected{% endif %}>Paragraph</option>
+                        <option value="heading" {% if para.type == 'heading' %}selected{% endif %}>Heading</option>
+                        <option value="subheading" {% if para.type == 'subheading' %}selected{% endif %}>Subheading</option>
+                        <option value="quote" {% if para.type == 'quote' %}selected{% endif %}>Quote</option>
+                    </select>
+                </div>
+                <div class="paragraph-text"
+                     contenteditable="true"
+                     data-para-id="{{ para.id }}"
+                     hx-post="/api/paragraph/{{ para.id }}/text"
+                     hx-trigger="blur"
+                     hx-vals='js:{"text": event.target.innerText}'
+                     hx-swap="none">{{ para.text }}</div>
+                <div class="paragraph-actions">
+                    <button class="delete-btn"
+                            hx-delete="/api/paragraph/{{ para.id }}"
+                            hx-confirm="Delete this paragraph?"
+                            hx-target="#para-{{ para.id }}"
+                            hx-swap="outerHTML">Delete</button>
+                </div>
+            </div>
+            {% else %}
+            <p class="empty-state">No paragraphs in this chapter</p>
+            {% endfor %}
+        </section>
+        {% else %}
+        <div class="empty-state">
+            <p>No content yet. Upload a DOCX file to get started.</p>
+            <a href="{{ url_for('dashboard.index') }}" class="btn">Go to Dashboard</a>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<div id="toast-container"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.body.addEventListener('htmx:afterRequest', function(evt) {
+    if (evt.detail.successful) {
+        showToast('Saved');
+    } else {
+        showToast('Error saving', 'error');
+    }
+});
+
+function showToast(message, type = 'success') {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = 'toast ' + type;
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+}
+</script>
+{% endblock %}
