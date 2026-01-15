@@ -4,8 +4,11 @@ from datetime import datetime, timezone
 from flask import Blueprint, request, jsonify, render_template
 from flask_login import login_required, current_user
 
-from app.models import db, Book, Chapter, Paragraph, Version
+from flask import Response
+
+from app.models import db, Book, Chapter, Paragraph, Version, Reference, Group
 from app.config import get_logger
+from app.services.exporter import export_book_json, export_lightrag_json
 
 bp = Blueprint('api', __name__, url_prefix='/api')
 logger = get_logger()
@@ -51,6 +54,40 @@ def update_paragraph_type(para_id):
                 user=current_user.username)
 
     # Return the updated paragraph card for HTMX
+    return render_template('components/paragraph.html', para=para)
+
+
+@bp.route('/paragraph/<int:para_id>/page', methods=['POST'])
+@login_required
+def update_paragraph_page(para_id):
+    """Update a paragraph's page number manually.
+
+    Args:
+        para_id: Paragraph ID
+
+    Returns:
+        Updated paragraph HTML
+    """
+    para = Paragraph.query.get_or_404(para_id)
+    page_str = request.form.get('page', '').strip()
+
+    if page_str:
+        try:
+            para.page_number = int(page_str)
+            para.page_confidence = 1.0  # Manual = 100% confidence
+        except ValueError:
+            return jsonify({'error': 'Invalid page number'}), 400
+    else:
+        para.page_number = None
+        para.page_confidence = None
+
+    db.session.commit()
+
+    logger.info("paragraph_page_updated",
+                para_id=para_id,
+                page_number=para.page_number,
+                user=current_user.username)
+
     return render_template('components/paragraph.html', para=para)
 
 
@@ -267,23 +304,46 @@ def list_versions(slug):
         slug: Book slug
 
     Returns:
-        List of version metadata
+        HTML list of versions (for HTMX) or JSON
     """
     book = Book.query.filter_by(slug=slug).first_or_404()
 
     versions = Version.query.filter_by(book_id=book.id)\
         .order_by(Version.created_at.desc()).all()
 
-    version_list = []
-    for v in versions:
-        version_list.append({
-            'id': v.id,
-            'version_type': v.version_type,
-            'created_at': v.created_at.isoformat() if v.created_at else None,
-            'created_by': v.created_by
-        })
+    # Return JSON for API clients
+    if request.headers.get('Accept') == 'application/json' or 'HX-Request' not in request.headers:
+        version_list = []
+        for v in versions:
+            version_list.append({
+                'id': v.id,
+                'version_type': v.version_type,
+                'created_at': v.created_at.isoformat() if v.created_at else None,
+                'created_by': v.created_by
+            })
+        return jsonify({'versions': version_list})
 
-    return jsonify({'versions': version_list})
+    # Return HTML for HTMX
+    html_parts = []
+    for v in versions:
+        created = v.created_at.strftime('%b %d %H:%M') if v.created_at else 'Unknown'
+        type_badge = 'auto' if v.version_type == 'auto' else 'manual'
+        html_parts.append(f'''
+            <div class="version-item" data-version-id="{v.id}">
+                <span class="version-badge version-{type_badge}">{type_badge}</span>
+                <span class="version-date">{created}</span>
+                <button class="btn-icon"
+                        hx-post="/api/version/{v.id}/restore"
+                        hx-swap="none"
+                        hx-confirm="Restore this version? Current state will be backed up."
+                        title="Restore">↩</button>
+            </div>
+        ''')
+
+    if not html_parts:
+        return '<p class="empty-state">No versions yet</p>'
+
+    return '\n'.join(html_parts)
 
 
 @bp.route('/version/<int:version_id>/restore', methods=['POST'])
@@ -354,3 +414,197 @@ def delete_version(version_id):
     db.session.commit()
 
     return jsonify({'status': 'ok', 'message': 'Version deleted'})
+
+
+@bp.route('/reference/<int:ref_id>/verify', methods=['POST'])
+@login_required
+def verify_reference(ref_id):
+    """Toggle verification status of a reference.
+
+    Args:
+        ref_id: Reference ID
+
+    Returns:
+        Updated paragraph HTML for HTMX
+    """
+    ref = Reference.query.get_or_404(ref_id)
+    ref.verified = not ref.verified
+    db.session.commit()
+
+    logger.info("reference_verified",
+                ref_id=ref_id,
+                verified=ref.verified,
+                user=current_user.username)
+
+    # Return the updated paragraph HTML
+    para = ref.paragraph
+    return render_template('components/paragraph.html', para=para)
+
+
+@bp.route('/reference/<int:ref_id>', methods=['DELETE'])
+@login_required
+def delete_reference(ref_id):
+    """Delete a reference.
+
+    Args:
+        ref_id: Reference ID
+
+    Returns:
+        Success response
+    """
+    ref = Reference.query.get_or_404(ref_id)
+
+    logger.info("reference_deleted",
+                ref_id=ref_id,
+                ref_type=ref.ref_type,
+                paragraph_id=ref.paragraph_id,
+                user=current_user.username)
+
+    db.session.delete(ref)
+    db.session.commit()
+
+    return jsonify({'status': 'ok', 'message': 'Reference deleted'})
+
+
+@bp.route('/book/<slug>', methods=['DELETE'])
+@login_required
+def delete_book(slug):
+    """Delete a book and all its content.
+
+    Args:
+        slug: Book slug
+
+    Returns:
+        Success response
+    """
+    book = Book.query.filter_by(slug=slug).first_or_404()
+
+    logger.info("book_deleted",
+                book_slug=slug,
+                title=book.title,
+                user=current_user.username)
+
+    # Cascade delete handles chapters, paragraphs, groups, versions, references
+    db.session.delete(book)
+    db.session.commit()
+
+    return jsonify({'status': 'ok', 'message': f'Book "{book.title}" deleted'})
+
+
+def _build_export_data(book):
+    """Build export data dict from Book model.
+
+    Args:
+        book: Book model instance
+
+    Returns:
+        Dict suitable for export functions
+    """
+    data = {
+        'title': book.title,
+        'author': book.author,
+        'slug': book.slug,
+        'paragraphs': [],
+        'groups': [],
+    }
+
+    # Build paragraphs list
+    for chapter in book.chapters.order_by(Chapter.order_index).all():
+        for para in chapter.paragraphs.filter_by(deleted=False).order_by(Paragraph.order_index).all():
+            para_data = {
+                'id': para.id,
+                'text': para.text,
+                'order_index': para.order_index,
+                'chapter_title': chapter.title,
+                'page_number': para.page_number,
+                'is_heading': para.type in ('heading', 'subheading'),
+                'heading_level': para.level if para.type in ('heading', 'subheading') else None,
+                'quran_refs': [],
+                'hadith_refs': [],
+                'group_id': para.group_id,
+            }
+
+            # Add references
+            for ref in para.references.all():
+                if ref.ref_type == 'quran':
+                    para_data['quran_refs'].append({
+                        'surah': ref.surah,
+                        'ayah': ref.ayah_start,
+                        'ayah_end': ref.ayah_end,
+                        'surah_name': ref.surah_name,
+                        'verified': ref.verified,
+                    })
+                elif ref.ref_type == 'hadith':
+                    para_data['hadith_refs'].append({
+                        'collection': ref.collection,
+                        'hadith_number': ref.hadith_number,
+                        'verified': ref.verified,
+                    })
+
+            data['paragraphs'].append(para_data)
+
+    # Build groups list
+    groups = Group.query.filter_by(book_id=book.id).order_by(Group.order_index).all()
+    for group in groups:
+        group_paras = [p for p in data['paragraphs'] if p['group_id'] == group.id]
+        data['groups'].append({
+            'order_index': group.order_index,
+            'token_count': group.token_count,
+            'paragraphs': group_paras,
+        })
+
+    return data
+
+
+@bp.route('/book/<slug>/export/book-json')
+@login_required
+def export_book_json_route(slug):
+    """Export book as Book JSON format.
+
+    Args:
+        slug: Book slug
+
+    Returns:
+        JSON file download
+    """
+    book = Book.query.filter_by(slug=slug).first_or_404()
+    data = _build_export_data(book)
+    json_str = export_book_json(data)
+
+    logger.info("book_exported",
+                book_slug=slug,
+                format='book_json',
+                user=current_user.username)
+
+    return Response(
+        json_str,
+        mimetype='application/json',
+        headers={'Content-Disposition': f'attachment; filename="{slug}_book.json"'}
+    )
+
+
+@bp.route('/book/<slug>/export/lightrag')
+@login_required
+def export_lightrag_route(slug):
+    """Export book as LightRAG JSON format.
+
+    Args:
+        slug: Book slug
+
+    Returns:
+        JSON file download
+    """
+    book = Book.query.filter_by(slug=slug).first_or_404()
+    data = _build_export_data(book)
+    json_str = export_lightrag_json(data)
+
+    logger.info("book_exported",
+                book_slug=slug,
+                format='lightrag',
+                user=current_user.username)
+
+    return Response(
+        json_str,
+        mimetype='application/json',
+        headers={'Content-Disposition': f'attachment; filename="{slug}_lightrag.json"'}
+    )

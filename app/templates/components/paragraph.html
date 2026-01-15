@@ -1,6 +1,12 @@
 <div class="paragraph-card {{ para.type }}" id="para-{{ para.id }}">
     <div class="paragraph-header">
         <span>#{{ para.order_index + 1 }}</span>
+        {% if para.page_number %}
+        <span class="page-badge" title="Page {{ para.page_number }}{% if para.page_confidence %} ({{ (para.page_confidence * 100)|int }}% confidence){% endif %}">p.{{ para.page_number }}</span>
+        {% endif %}
+        {% if para.group_id %}
+        <span class="group-badge" title="Group {{ para.group.order_index + 1 }}">G{{ para.group.order_index + 1 }}</span>
+        {% endif %}
         <select class="paragraph-type-select"
                 hx-post="/api/paragraph/{{ para.id }}/type"
                 hx-trigger="change"
@@ -20,6 +26,28 @@
          hx-trigger="blur"
          hx-vals='js:{"text": event.target.innerText}'
          hx-swap="none">{{ para.text }}</div>
+    {% set refs = para.references.all() %}
+    {% if refs %}
+    <div class="paragraph-refs">
+        {% for ref in refs %}
+        <span class="ref-badge ref-{{ ref.ref_type }} {% if ref.verified %}verified{% endif %}"
+              title="Click to verify. {{ ref.raw_text or '' }}"
+              data-ref-id="{{ ref.id }}"
+              hx-post="/api/reference/{{ ref.id }}/verify"
+              hx-swap="outerHTML"
+              hx-target="#para-{{ para.id }}">
+            {% if ref.ref_type == 'quran' %}
+            Q{{ ref.surah }}:{{ ref.ayah_start }}{% if ref.ayah_end %}-{{ ref.ayah_end }}{% endif %}
+            {% elif ref.ref_type == 'hadith' %}
+            {{ ref.collection|capitalize }}{% if ref.hadith_number %} {{ ref.hadith_number }}{% endif %}
+            {% else %}
+            {{ ref.ref_type }}
+            {% endif %}
+            {% if ref.verified %}✓{% endif %}
+        </span>
+        {% endfor %}
+    </div>
+    {% endif %}
     <div class="paragraph-actions">
         <button class="delete-btn"
                 hx-delete="/api/paragraph/{{ para.id }}"

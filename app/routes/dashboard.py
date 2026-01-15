@@ -5,9 +5,13 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
 
-from app.models import db, Book, Chapter, Paragraph
+from app.models import db, Book, Chapter, Paragraph, Reference, Group
 from app.config import get_logger, UPLOADS_DIR
 from app.services.docx_parser import parse_docx
+from app.services.pdf_matcher import match_paragraphs_to_pdf
+from app.services.quran_detector import detect_quran_refs
+from app.services.hadith_detector import detect_hadith_refs
+from app.services.grouping import create_groups, count_tokens
 
 bp = Blueprint('dashboard', __name__)
 logger = get_logger()
@@ -53,6 +57,13 @@ def upload_book():
         flash('Please upload a DOCX file', 'error')
         return redirect(url_for('dashboard.index'))
 
+    # Optional PDF file for page matching
+    pdf_file = request.files.get('pdf_file')
+    if pdf_file and pdf_file.filename:
+        if not pdf_file.filename.endswith('.pdf'):
+            flash('PDF file must have .pdf extension', 'error')
+            return redirect(url_for('dashboard.index'))
+
     title = request.form.get('title', '').strip()
     author = request.form.get('author', '').strip()
 
@@ -67,10 +78,17 @@ def upload_book():
         slug = f"{base_slug}-{counter}"
         counter += 1
 
-    # Save the file
+    # Save the DOCX file
     filename = secure_filename(file.filename)
     upload_path = UPLOADS_DIR / f"{slug}_{filename}"
     file.save(upload_path)
+
+    # Save PDF file if provided
+    pdf_upload_path = None
+    if pdf_file and pdf_file.filename:
+        pdf_filename = secure_filename(pdf_file.filename)
+        pdf_upload_path = UPLOADS_DIR / f"{slug}_{pdf_filename}"
+        pdf_file.save(pdf_upload_path)
 
     try:
         # Parse the DOCX
@@ -82,6 +100,7 @@ def upload_book():
             author=author or None,
             slug=slug,
             docx_path=str(upload_path),
+            pdf_path=str(pdf_upload_path) if pdf_upload_path else None,
             status='draft'
         )
         db.session.add(book)
@@ -111,6 +130,97 @@ def upload_book():
 
             db.session.commit()
 
+        # PDF page matching (if PDF provided)
+        if pdf_upload_path:
+            all_paragraphs = []
+            for chapter in book.chapters:
+                for para in chapter.paragraphs:
+                    all_paragraphs.append({'id': para.id, 'text': para.text})
+
+            if all_paragraphs:
+                match_results = match_paragraphs_to_pdf(all_paragraphs, pdf_upload_path)
+                for match in match_results:
+                    para = Paragraph.query.get(match['paragraph_id'])
+                    if para:
+                        para.page_number = match['page_number']
+                        para.page_confidence = match['confidence']
+                db.session.commit()
+                logger.info("pdf_matching_complete",
+                            book_slug=slug,
+                            matched_count=sum(1 for m in match_results if m['page_number']))
+
+        # Reference detection (Quran and Hadith)
+        ref_count = 0
+        for chapter in book.chapters:
+            for para in chapter.paragraphs:
+                # Detect Quran references
+                quran_refs = detect_quran_refs(para.text)
+                for ref in quran_refs:
+                    db_ref = Reference(
+                        paragraph_id=para.id,
+                        ref_type='quran',
+                        surah=ref.get('surah'),
+                        ayah_start=ref.get('ayah_start'),
+                        ayah_end=ref.get('ayah_end'),
+                        surah_name=ref.get('surah_name'),
+                        raw_text=ref.get('raw_text'),
+                        auto_detected=True
+                    )
+                    db.session.add(db_ref)
+                    ref_count += 1
+
+                # Detect Hadith references
+                hadith_refs = detect_hadith_refs(para.text)
+                for ref in hadith_refs:
+                    db_ref = Reference(
+                        paragraph_id=para.id,
+                        ref_type='hadith',
+                        collection=ref.get('collection'),
+                        hadith_number=ref.get('hadith_number'),
+                        raw_text=ref.get('raw_text'),
+                        auto_detected=True
+                    )
+                    db.session.add(db_ref)
+                    ref_count += 1
+
+        db.session.commit()
+        if ref_count > 0:
+            logger.info("references_detected",
+                        book_slug=slug,
+                        reference_count=ref_count)
+
+        # Create groups for chunking
+        all_paras_for_grouping = []
+        for chapter in book.chapters:
+            for para in chapter.paragraphs:
+                all_paras_for_grouping.append({
+                    'id': para.id,
+                    'text': para.text,
+                    'token_count': count_tokens(para.text)
+                })
+
+        if all_paras_for_grouping:
+            groups_data = create_groups(all_paras_for_grouping)
+            for group_data in groups_data:
+                group = Group(
+                    book_id=book.id,
+                    order_index=group_data['order_index'],
+                    token_count=group_data['token_count']
+                )
+                db.session.add(group)
+                db.session.flush()
+
+                # Update paragraphs with group_id
+                for para_data in group_data['paragraphs']:
+                    para = Paragraph.query.get(para_data['id'])
+                    if para:
+                        para.group_id = group.id
+
+            db.session.commit()
+            logger.info("groups_created",
+                        book_slug=slug,
+                        group_count=len(groups_data))
+
         logger.info("book_uploaded",
                     book_slug=slug,
                     title=title,
@@ -129,5 +239,7 @@ def upload_book():
         # Clean up on failure
         if upload_path.exists():
             upload_path.unlink()
+        if pdf_upload_path and pdf_upload_path.exists():
+            pdf_upload_path.unlink()
 
     return redirect(url_for('dashboard.index'))

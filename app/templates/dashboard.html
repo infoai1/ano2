@@ -79,13 +79,81 @@
         color: #888;
         margin-bottom: 1rem;
     }
+
+    .modal {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    }
+
+    .modal-content {
+        width: 100%;
+        max-width: 400px;
+    }
+
+    .form-group {
+        margin-bottom: 1rem;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 0.25rem;
+        font-weight: 500;
+    }
+
+    .form-group input {
+        width: 100%;
+        padding: 0.5rem;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+    }
+
+    .form-actions {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: flex-end;
+        margin-top: 1.5rem;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="dashboard-header">
     <h2>Dashboard</h2>
-    <a href="#" class="btn">Upload DOCX</a>
+    <button type="button" class="btn" onclick="openUploadModal()">Upload DOCX</button>
+</div>
+
+<!-- Upload Modal -->
+<div id="uploadModal" class="modal" style="display:none;">
+    <div class="modal-content card">
+        <h3>Upload DOCX</h3>
+        <form action="{{ url_for('dashboard.upload_book') }}" method="POST" enctype="multipart/form-data">
+            <div class="form-group">
+                <label for="file">DOCX File *</label>
+                <input type="file" id="file" name="file" accept=".docx" required>
+            </div>
+            <div class="form-group">
+                <label for="pdf_file">PDF File (optional, for page matching)</label>
+                <input type="file" id="pdf_file" name="pdf_file" accept=".pdf">
+            </div>
+            <div class="form-group">
+                <label for="title">Title (optional)</label>
+                <input type="text" id="title" name="title" placeholder="Auto-detected from filename">
+            </div>
+            <div class="form-group">
+                <label for="author">Author (optional)</label>
+                <input type="text" id="author" name="author">
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeUploadModal()">Cancel</button>
+                <button type="submit" class="btn">Upload</button>
+            </div>
+        </form>
+    </div>
 </div>
 
 {% if books %}
@@ -100,8 +168,13 @@
         <div class="book-stats">
             <span>Updated: {{ book.updated_at.strftime('%b %d') if book.updated_at else 'N/A' }}</span>
         </div>
-        <div style="margin-top: 1rem;">
+        <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
             <a href="{{ url_for('editor.edit', slug=book.slug) }}" class="btn btn-secondary">Edit</a>
+            <button class="btn btn-danger"
+                    hx-delete="/api/book/{{ book.slug }}"
+                    hx-confirm="Delete '{{ book.title }}'? This cannot be undone."
+                    hx-target="closest .book-card"
+                    hx-swap="outerHTML">Delete</button>
         </div>
     </div>
     {% endfor %}
@@ -112,4 +185,20 @@
     <p>Upload a DOCX file to get started.</p>
 </div>
 {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function openUploadModal() {
+    document.getElementById('uploadModal').style.display = 'flex';
+}
+
+function closeUploadModal() {
+    document.getElementById('uploadModal').style.display = 'none';
+}
+
+document.getElementById('uploadModal').addEventListener('click', function(e) {
+    if (e.target === this) closeUploadModal();
+});
+</script>
 {% endblock %}
