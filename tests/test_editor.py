@@ -282,3 +282,211 @@ class TestDeleteParagraph:
         with app.app_context():
             para = Paragraph.query.get(para_id)
             assert para.deleted is True
+
+
+class TestAddManualReference:
+    """Test manual reference addition."""
+
+    def test_add_quran_reference(self, logged_in_client, app, book_with_paragraphs):
+        """Should be able to add a Quran reference manually."""
+        from app.models import Paragraph, Reference
+        with app.app_context():
+            para = Paragraph.query.first()
+            para_id = para.id
+
+        response = logged_in_client.post(
+            f'/api/paragraph/{para_id}/reference',
+            data={
+                'ref_type': 'quran',
+                'surah': '2',
+                'ayah_start': '255',
+                'surah_name': 'Al-Baqarah'
+            },
+            headers={'HX-Request': 'true'}
+        )
+        assert response.status_code == 200
+
+        with app.app_context():
+            ref = Reference.query.filter_by(paragraph_id=para_id, ref_type='quran').first()
+            assert ref is not None
+            assert ref.surah == 2
+            assert ref.ayah_start == 255
+            assert ref.verified is True
+            assert ref.auto_detected is False
+
+    def test_add_hadith_reference(self, logged_in_client, app, book_with_paragraphs):
+        """Should be able to add a Hadith reference manually."""
+        from app.models import Paragraph, Reference
+        with app.app_context():
+            para = Paragraph.query.first()
+            para_id = para.id
+
+        response = logged_in_client.post(
+            f'/api/paragraph/{para_id}/reference',
+            data={
+                'ref_type': 'hadith',
+                'collection': 'Bukhari',
+                'hadith_number': '1234'
+            },
+            headers={'HX-Request': 'true'}
+        )
+        assert response.status_code == 200
+
+        with app.app_context():
+            ref = Reference.query.filter_by(paragraph_id=para_id, ref_type='hadith').first()
+            assert ref is not None
+            assert ref.collection == 'bukhari'
+            assert ref.hadith_number == '1234'
+
+    def test_add_footnote_reference(self, logged_in_client, app, book_with_paragraphs):
+        """Should be able to add a footnote reference manually."""
+        from app.models import Paragraph, Reference
+        with app.app_context():
+            para = Paragraph.query.first()
+            para_id = para.id
+
+        response = logged_in_client.post(
+            f'/api/paragraph/{para_id}/reference',
+            data={
+                'ref_type': 'footnote',
+                'raw_text': 'This is a footnote'
+            },
+            headers={'HX-Request': 'true'}
+        )
+        assert response.status_code == 200
+
+        with app.app_context():
+            ref = Reference.query.filter_by(paragraph_id=para_id, ref_type='footnote').first()
+            assert ref is not None
+            assert 'footnote' in ref.raw_text
+
+    def test_add_reference_invalid_type(self, logged_in_client, app, book_with_paragraphs):
+        """Invalid reference type should be rejected."""
+        from app.models import Paragraph
+        with app.app_context():
+            para = Paragraph.query.first()
+            para_id = para.id
+
+        response = logged_in_client.post(
+            f'/api/paragraph/{para_id}/reference',
+            data={'ref_type': 'invalid'},
+            headers={'HX-Request': 'true'}
+        )
+        assert response.status_code == 400
+
+    def test_add_quran_reference_missing_fields(self, logged_in_client, app, book_with_paragraphs):
+        """Quran reference without surah/ayah should be rejected."""
+        from app.models import Paragraph
+        with app.app_context():
+            para = Paragraph.query.first()
+            para_id = para.id
+
+        response = logged_in_client.post(
+            f'/api/paragraph/{para_id}/reference',
+            data={'ref_type': 'quran'},
+            headers={'HX-Request': 'true'}
+        )
+        assert response.status_code == 400
+
+
+class TestUpdateParagraphGroup:
+    """Test paragraph group membership editing."""
+
+    @pytest.fixture
+    def book_with_groups(self, app):
+        """Create a book with paragraphs and groups."""
+        from app.models import db, Book, Chapter, Paragraph, Group
+
+        with app.app_context():
+            book = Book(title='Test Book Groups', slug='test-book-groups', author='Test')
+            db.session.add(book)
+            db.session.commit()
+
+            chapter = Chapter(book_id=book.id, title='Chapter 1', order_index=0)
+            db.session.add(chapter)
+            db.session.commit()
+
+            # Create two groups
+            group1 = Group(book_id=book.id, order_index=0, token_count=100)
+            group2 = Group(book_id=book.id, order_index=1, token_count=100)
+            db.session.add(group1)
+            db.session.add(group2)
+            db.session.commit()
+
+            # Create paragraphs in group1
+            for i in range(3):
+                para = Paragraph(
+                    chapter_id=chapter.id,
+                    text=f'Paragraph {i+1}',
+                    type='paragraph',
+                    order_index=i,
+                    group_id=group1.id
+                )
+                db.session.add(para)
+            db.session.commit()
+
+            return {'slug': book.slug, 'group1_id': group1.id, 'group2_id': group2.id}
+
+    def test_move_paragraph_to_different_group(self, logged_in_client, app, book_with_groups):
+        """Should be able to move a paragraph to a different group."""
+        from app.models import Paragraph
+        with app.app_context():
+            para = Paragraph.query.filter_by(group_id=book_with_groups['group1_id']).first()
+            para_id = para.id
+
+        response = logged_in_client.post(
+            f'/api/paragraph/{para_id}/group',
+            data={'group_id': str(book_with_groups['group2_id'])},
+            headers={'HX-Request': 'true'}
+        )
+        assert response.status_code == 200
+
+        with app.app_context():
+            para = Paragraph.query.get(para_id)
+            assert para.group_id == book_with_groups['group2_id']
+
+    def test_remove_paragraph_from_group(self, logged_in_client, app, book_with_groups):
+        """Should be able to remove a paragraph from its group."""
+        from app.models import Paragraph
+        with app.app_context():
+            para = Paragraph.query.filter_by(group_id=book_with_groups['group1_id']).first()
+            para_id = para.id
+
+        response = logged_in_client.post(
+            f'/api/paragraph/{para_id}/group',
+            data={'group_id': ''},
+            headers={'HX-Request': 'true'}
+        )
+        assert response.status_code == 200
+
+        with app.app_context():
+            para = Paragraph.query.get(para_id)
+            assert para.group_id is None
+
+    def test_move_to_nonexistent_group(self, logged_in_client, app, book_with_groups):
+        """Moving to nonexistent group should return 404."""
+        from app.models import Paragraph
+        with app.app_context():
+            para = Paragraph.query.filter_by(group_id=book_with_groups['group1_id']).first()
+            para_id = para.id
+
+        response = logged_in_client.post(
+            f'/api/paragraph/{para_id}/group',
+            data={'group_id': '99999'},
+            headers={'HX-Request': 'true'}
+        )
+        assert response.status_code == 404
+
+    def test_invalid_group_id(self, logged_in_client, app, book_with_groups):
+        """Invalid group ID should return 400."""
+        from app.models import Paragraph
+        with app.app_context():
+            para = Paragraph.query.filter_by(group_id=book_with_groups['group1_id']).first()
+            para_id = para.id
+
+        response = logged_in_client.post(
+            f'/api/paragraph/{para_id}/group',
+            data={'group_id': 'not-a-number'},
+            headers={'HX-Request': 'true'}
+        )
+        assert response.status_code == 400

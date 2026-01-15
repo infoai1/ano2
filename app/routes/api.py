@@ -466,6 +466,133 @@ def delete_reference(ref_id):
     return jsonify({'status': 'ok', 'message': 'Reference deleted'})
 
 
+@bp.route('/paragraph/<int:para_id>/reference', methods=['POST'])
+@login_required
+def add_reference(para_id):
+    """Add a manual reference to a paragraph.
+
+    Args:
+        para_id: Paragraph ID
+
+    Form data:
+        - ref_type: 'quran', 'hadith', or 'footnote'
+        - For quran: surah, ayah_start, ayah_end (optional), surah_name (optional)
+        - For hadith: collection, hadith_number
+        - For footnote: raw_text
+
+    Returns:
+        Updated paragraph HTML for HTMX
+    """
+    para = Paragraph.query.get_or_404(para_id)
+    ref_type = request.form.get('ref_type', '').strip()
+
+    if ref_type not in ('quran', 'hadith', 'footnote'):
+        return jsonify({'error': 'Invalid reference type. Use: quran, hadith, or footnote'}), 400
+
+    ref = Reference(
+        paragraph_id=para_id,
+        ref_type=ref_type,
+        auto_detected=False,
+        verified=True  # Manual references are pre-verified
+    )
+
+    if ref_type == 'quran':
+        try:
+            surah = request.form.get('surah')
+            ayah_start = request.form.get('ayah_start')
+            if not surah or not ayah_start:
+                return jsonify({'error': 'Quran reference requires surah and ayah_start'}), 400
+            ref.surah = int(surah)
+            ref.ayah_start = int(ayah_start)
+            ayah_end = request.form.get('ayah_end')
+            if ayah_end:
+                ref.ayah_end = int(ayah_end)
+            ref.surah_name = request.form.get('surah_name')
+            ref.raw_text = f"Quran {ref.surah}:{ref.ayah_start}"
+            if ref.ayah_end:
+                ref.raw_text += f"-{ref.ayah_end}"
+        except ValueError:
+            return jsonify({'error': 'Invalid surah or ayah number'}), 400
+
+    elif ref_type == 'hadith':
+        collection = request.form.get('collection', '').strip()
+        hadith_number = request.form.get('hadith_number', '').strip()
+        if not collection:
+            return jsonify({'error': 'Hadith reference requires collection'}), 400
+        ref.collection = collection.lower()
+        ref.hadith_number = hadith_number
+        ref.raw_text = f"{collection}"
+        if hadith_number:
+            ref.raw_text += f" {hadith_number}"
+
+    elif ref_type == 'footnote':
+        raw_text = request.form.get('raw_text', '').strip()
+        if not raw_text:
+            return jsonify({'error': 'Footnote reference requires raw_text'}), 400
+        ref.raw_text = raw_text
+
+    db.session.add(ref)
+    db.session.commit()
+
+    logger.info("reference_added",
+                ref_id=ref.id,
+                ref_type=ref_type,
+                paragraph_id=para_id,
+                user=current_user.username)
+
+    return render_template('components/paragraph.html', para=para)
+
+
+@bp.route('/paragraph/<int:para_id>/group', methods=['POST'])
+@login_required
+def update_paragraph_group(para_id):
+    """Move a paragraph to a different group.
+
+    Args:
+        para_id: Paragraph ID
+
+    Form data:
+        - group_id: Target group ID (or empty to remove from group)
+
+    Returns:
+        Updated paragraph HTML for HTMX
+    """
+    para = Paragraph.query.get_or_404(para_id)
+    group_id_str = request.form.get('group_id', '').strip()
+
+    old_group_id = para.group_id
+
+    if not group_id_str:
+        # Remove from group
+        para.group_id = None
+    else:
+        try:
+            new_group_id = int(group_id_str)
+            # Verify the group exists and belongs to the same book
+            group = Group.query.get(new_group_id)
+            if not group:
+                return jsonify({'error': 'Group not found'}), 404
+
+            # Check group belongs to same book as paragraph
+            chapter = para.chapter
+            if chapter and group.book_id != chapter.book_id:
+                return jsonify({'error': 'Group belongs to a different book'}), 400
+
+            para.group_id = new_group_id
+        except ValueError:
+            return jsonify({'error': 'Invalid group ID'}), 400
+
+    db.session.commit()
+
+    logger.info("paragraph_group_updated",
+                para_id=para_id,
+                old_group_id=old_group_id,
+                new_group_id=para.group_id,
+                user=current_user.username)
+
+    return render_template('components/paragraph.html', para=para)
+
+
 @bp.route('/book/<slug>', methods=['DELETE'])
 @login_required
 def delete_book(slug):

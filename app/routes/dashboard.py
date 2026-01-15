@@ -11,6 +11,7 @@ from app.services.docx_parser import parse_docx
 from app.services.pdf_matcher import match_paragraphs_to_pdf
 from app.services.quran_detector import detect_quran_refs
 from app.services.hadith_detector import detect_hadith_refs
+from app.services.footnote_linker import detect_footnote_markers, detect_footnotes, link_footnotes
 from app.services.grouping import create_groups, count_tokens
 
 bp = Blueprint('dashboard', __name__)
@@ -188,6 +189,42 @@ def upload_book():
             logger.info("references_detected",
                         book_slug=slug,
                         reference_count=ref_count)
+
+        # Footnote detection and linking
+        footnote_count = 0
+        for chapter in book.chapters:
+            # Collect all paragraph texts to find footnote definitions
+            all_paras = list(chapter.paragraphs.all())
+            footnote_text = ""
+
+            # Look for paragraphs that appear to be footnote definitions
+            for para in all_paras:
+                # Check if paragraph starts with footnote-like pattern
+                if re.match(r'^\s*(\d+[.)]\s|^\[?\d+\]?\s)', para.text):
+                    footnote_text += para.text + "\n"
+
+            # Detect footnotes from collected text
+            footnotes = detect_footnotes(footnote_text) if footnote_text else []
+
+            if footnotes:
+                # Link footnotes to paragraphs with markers
+                for para in all_paras:
+                    links = link_footnotes(para.text, footnotes)
+                    for link in links:
+                        db_ref = Reference(
+                            paragraph_id=para.id,
+                            ref_type='footnote',
+                            raw_text=f"[{link['marker']}] {link['content'][:100]}",
+                            auto_detected=True
+                        )
+                        db.session.add(db_ref)
+                        footnote_count += 1
+
+        db.session.commit()
+        if footnote_count > 0:
+            logger.info("footnotes_linked",
+                        book_slug=slug,
+                        footnote_count=footnote_count)
 
         # Create groups for chunking
         all_paras_for_grouping = []
