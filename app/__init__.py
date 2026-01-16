@@ -6,13 +6,22 @@ from flask_login import LoginManager
 
 from app.config import SECRET_KEY, DATABASE_URI, ensure_dirs, get_logger
 from app.models import db, User
+from app.highlight_config import ISLAMIC_KEYWORDS, PEOPLE_KEYWORDS, PLACE_KEYWORDS
 
 
 login_manager = LoginManager()
 
 
 def highlight_references(text):
-    """Highlight Quran, Hadith, and year references in text.
+    """Highlight Quran, Hadith, year references and keywords in text.
+
+    Highlights:
+    - Quran verse patterns (2:255), Quran 2:255, Surah Al-Baqarah
+    - Hadith patterns: Bukhari 1234, Sahih Muslim 567
+    - Years: 1925, 2021, etc.
+    - Islamic keywords from config (clickable to add reference)
+    - People names from config
+    - Place names from config
 
     Args:
         text: The paragraph text to process
@@ -26,14 +35,14 @@ def highlight_references(text):
     # Escape the text first for safety
     text = str(escape(text))
 
-    # Quran patterns: (2:255), Quran 2:255, Surah Al-Baqarah, etc.
+    # Quran verse patterns: (2:255), Quran 2:255, etc. - these are auto-detected refs
     quran_patterns = [
         r'\((\d{1,3}:\d{1,3}(?:-\d{1,3})?)\)',  # (2:255) or (2:255-257)
         r'(?:Quran|Qur\'?an)\s+(\d{1,3}:\d{1,3}(?:-\d{1,3})?)',  # Quran 2:255
         r'(?:Surah|Sura)\s+([\w\-]+(?:\s+[\w\-]+)?)',  # Surah Al-Baqarah
     ]
 
-    # Hadith patterns: Bukhari 1234, Sahih Muslim 567, etc.
+    # Hadith patterns with numbers - auto-detected refs
     hadith_patterns = [
         r'(?:Sahih\s+)?(?:Bukhari|Muslim|Tirmidhi|Abu\s+Dawud|Ibn\s+Majah|Nasai|Muwatta)\s*[,:]?\s*(\d+)',
     ]
@@ -41,16 +50,62 @@ def highlight_references(text):
     # Year patterns: 1925, 2021, etc. (years between 1000-2100)
     year_pattern = r'\b(1\d{3}|20\d{2}|21\d{2})\b'
 
-    # Apply Quran highlighting
+    # Apply Quran verse highlighting (clickable, data attribute for quick add)
     for pattern in quran_patterns:
-        text = re.sub(pattern, r'<span class="highlight-quran">\g<0></span>', text, flags=re.IGNORECASE)
+        text = re.sub(
+            pattern,
+            r'<span class="highlight-quran highlight-clickable" data-ref-type="quran" title="Click to add as reference">\g<0></span>',
+            text,
+            flags=re.IGNORECASE
+        )
 
-    # Apply Hadith highlighting
+    # Apply Hadith highlighting (clickable)
     for pattern in hadith_patterns:
-        text = re.sub(pattern, r'<span class="highlight-hadith">\g<0></span>', text, flags=re.IGNORECASE)
+        text = re.sub(
+            pattern,
+            r'<span class="highlight-hadith highlight-clickable" data-ref-type="hadith" title="Click to add as reference">\g<0></span>',
+            text,
+            flags=re.IGNORECASE
+        )
 
-    # Apply Year highlighting (only if not already inside a highlight span)
-    text = re.sub(year_pattern, r'<span class="highlight-year">\1</span>', text)
+    # Apply Year highlighting
+    text = re.sub(
+        year_pattern,
+        r'<span class="highlight-year" title="Year">\1</span>',
+        text
+    )
+
+    # Apply Islamic keyword highlighting (from config)
+    for keyword in ISLAMIC_KEYWORDS:
+        # Word boundary match, case insensitive
+        pattern = r'\b(' + re.escape(keyword) + r')\b'
+        # Don't highlight if already inside a span
+        text = re.sub(
+            pattern,
+            r'<span class="highlight-keyword highlight-islamic" title="Islamic term">\1</span>',
+            text,
+            flags=re.IGNORECASE
+        )
+
+    # Apply People keyword highlighting
+    for keyword in PEOPLE_KEYWORDS:
+        pattern = r'\b(' + re.escape(keyword) + r')\b'
+        text = re.sub(
+            pattern,
+            r'<span class="highlight-keyword highlight-people" title="Person">\1</span>',
+            text,
+            flags=re.IGNORECASE
+        )
+
+    # Apply Place keyword highlighting
+    for keyword in PLACE_KEYWORDS:
+        pattern = r'\b(' + re.escape(keyword) + r')\b'
+        text = re.sub(
+            pattern,
+            r'<span class="highlight-keyword highlight-place" title="Place">\1</span>',
+            text,
+            flags=re.IGNORECASE
+        )
 
     return Markup(text)
 

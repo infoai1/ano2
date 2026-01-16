@@ -420,6 +420,39 @@
         border-radius: 2px;
     }
 
+    /* Keyword highlights */
+    .highlight-keyword {
+        padding: 0 2px;
+        border-radius: 2px;
+        cursor: default;
+    }
+
+    .highlight-islamic {
+        background: #e0e7ff;
+        color: #3730a3;
+    }
+
+    .highlight-people {
+        background: #fae8ff;
+        color: #86198f;
+    }
+
+    .highlight-place {
+        background: #d1fae5;
+        color: #065f46;
+    }
+
+    /* Clickable highlights for auto-detected refs */
+    .highlight-clickable {
+        cursor: pointer;
+        border-bottom: 1px dashed currentColor;
+    }
+
+    .highlight-clickable:hover {
+        opacity: 0.8;
+        text-decoration: underline;
+    }
+
     /* View/Edit toggle */
     .view-toggle-btn {
         padding: 0.15rem 0.4rem;
@@ -729,5 +762,74 @@ async function extractConcepts(limit) {
         showToast('Extraction error: ' + error.message, 'error');
     }
 }
+
+// Handle clicks on highlighted references to quick-add them
+document.addEventListener('click', function(e) {
+    const highlight = e.target.closest('.highlight-clickable');
+    if (!highlight) return;
+
+    const paraCard = highlight.closest('.paragraph-card');
+    if (!paraCard) return;
+
+    const paraId = paraCard.id.replace('para-', '');
+    const refType = highlight.dataset.refType;
+    const text = highlight.textContent.trim();
+
+    // Parse the reference from the text
+    if (refType === 'quran') {
+        // Try to extract surah:ayah pattern
+        const match = text.match(/(\d{1,3}):(\d{1,3})(?:-(\d{1,3}))?/);
+        if (match) {
+            const surah = match[1];
+            const ayahStart = match[2];
+            const ayahEnd = match[3] || '';
+
+            // Add reference via API
+            const formData = new FormData();
+            formData.append('ref_type', 'quran');
+            formData.append('surah', surah);
+            formData.append('ayah_start', ayahStart);
+            if (ayahEnd) formData.append('ayah_end', ayahEnd);
+
+            fetch(`/api/paragraph/${paraId}/reference`, {
+                method: 'POST',
+                body: formData
+            }).then(response => {
+                if (response.ok) {
+                    showToast(`Added Quran ${surah}:${ayahStart}${ayahEnd ? '-' + ayahEnd : ''}`);
+                    // Refresh the paragraph
+                    htmx.trigger(`#para-${paraId}`, 'htmx:load');
+                    location.reload();
+                } else {
+                    showToast('Failed to add reference', 'error');
+                }
+            });
+        }
+    } else if (refType === 'hadith') {
+        // Try to extract collection and number
+        const match = text.match(/(Bukhari|Muslim|Tirmidhi|Abu\s*Dawud|Ibn\s*Majah|Nasai|Muwatta)\s*[,:]?\s*(\d+)/i);
+        if (match) {
+            const collection = match[1].toLowerCase().replace(/\s+/g, '');
+            const number = match[2];
+
+            const formData = new FormData();
+            formData.append('ref_type', 'hadith');
+            formData.append('collection', collection);
+            formData.append('hadith_number', number);
+
+            fetch(`/api/paragraph/${paraId}/reference`, {
+                method: 'POST',
+                body: formData
+            }).then(response => {
+                if (response.ok) {
+                    showToast(`Added ${collection} ${number}`);
+                    location.reload();
+                } else {
+                    showToast('Failed to add reference', 'error');
+                }
+            });
+        }
+    }
+});
 </script>
 {% endblock %}
