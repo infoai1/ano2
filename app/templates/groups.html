@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+
+{% block title %}{{ book.title }} - Groups View{% endblock %}
+
+{% block header %}
+<header class="header">
+    <div>
+        <h1>{{ book.title }} - Groups</h1>
+        <span class="book-meta">{{ groups_data|length }} groups</span>
+    </div>
+    <nav>
+        <a href="{{ url_for('editor.edit', slug=book.slug) }}" class="btn">Editor</a>
+        <a href="{{ url_for('editor.paragraphs_view', slug=book.slug) }}" class="btn btn-secondary">Paragraphs</a>
+        <a href="{{ url_for('dashboard.index') }}">Dashboard</a>
+    </nav>
+</header>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .groups-container {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 2rem;
+    }
+
+    .group-card {
+        background: white;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        margin-bottom: 1.5rem;
+        overflow: hidden;
+    }
+
+    .group-header {
+        background: var(--primary);
+        color: white;
+        padding: 0.75rem 1rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .group-header h3 {
+        margin: 0;
+        font-size: 1rem;
+    }
+
+    .group-meta {
+        font-size: 0.85rem;
+        opacity: 0.9;
+    }
+
+    .group-paragraphs {
+        padding: 1rem;
+    }
+
+    .group-para {
+        padding: 0.75rem;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        gap: 1rem;
+    }
+
+    .group-para:last-child {
+        border-bottom: none;
+    }
+
+    .para-num {
+        color: #666;
+        font-size: 0.85rem;
+        min-width: 50px;
+    }
+
+    .para-text {
+        flex: 1;
+        line-height: 1.6;
+    }
+
+    .para-refs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.3rem;
+        margin-top: 0.5rem;
+    }
+
+    .ref-badge {
+        padding: 0.15rem 0.4rem;
+        border-radius: 3px;
+        font-size: 0.7rem;
+        font-family: monospace;
+    }
+
+    .ref-quran {
+        background: #dbeafe;
+        color: #1d4ed8;
+    }
+
+    .ref-hadith {
+        background: #fef3c7;
+        color: #b45309;
+    }
+
+    .ungrouped-section {
+        background: #fef3c7;
+        border: 1px solid #fcd34d;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-top: 2rem;
+    }
+
+    .ungrouped-section h3 {
+        color: #b45309;
+        margin-bottom: 1rem;
+    }
+
+    .highlight-quran {
+        background: #dbeafe;
+        color: #1d4ed8;
+        padding: 0 2px;
+        border-radius: 2px;
+    }
+
+    .highlight-hadith {
+        background: #fef3c7;
+        color: #b45309;
+        padding: 0 2px;
+        border-radius: 2px;
+    }
+
+    .highlight-year {
+        background: #d1fae5;
+        color: #065f46;
+        padding: 0 2px;
+        border-radius: 2px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="groups-container">
+    {% for item in groups_data %}
+    <div class="group-card">
+        <div class="group-header">
+            <h3>Group {{ item.group.order_index + 1 }}</h3>
+            <span class="group-meta">{{ item.group.token_count }} tokens | {{ item.paragraphs|length }} paragraphs</span>
+        </div>
+        <div class="group-paragraphs">
+            {% for para in item.paragraphs %}
+            <div class="group-para">
+                <span class="para-num">#{{ para.order_index + 1 }}</span>
+                <div class="para-content">
+                    <div class="para-text">{{ para.text|highlight_refs }}</div>
+                    {% set refs = para.references.all() %}
+                    {% if refs %}
+                    <div class="para-refs">
+                        {% for ref in refs %}
+                        <span class="ref-badge ref-{{ ref.ref_type }}">
+                            {% if ref.ref_type == 'quran' %}Q{{ ref.surah }}:{{ ref.ayah_start }}{% if ref.ayah_end %}-{{ ref.ayah_end }}{% endif %}
+                            {% elif ref.ref_type == 'hadith' %}{{ ref.collection|capitalize }}{% if ref.hadith_number %} {{ ref.hadith_number }}{% endif %}
+                            {% endif %}
+                            {% if ref.verified %}&#10003;{% endif %}
+                        </span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% else %}
+            <p style="color:#666; padding:1rem;">No paragraphs in this group</p>
+            {% endfor %}
+        </div>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <p>No groups created yet. Groups are auto-generated when you upload a book.</p>
+    </div>
+    {% endfor %}
+
+    {% if ungrouped %}
+    <div class="ungrouped-section">
+        <h3>Ungrouped Paragraphs ({{ ungrouped|length }})</h3>
+        {% for para in ungrouped %}
+        <div class="group-para">
+            <span class="para-num">#{{ para.order_index + 1 }}</span>
+            <div class="para-text">{{ para.text|truncate(200) }}</div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

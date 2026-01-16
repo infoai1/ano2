@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+
+{% block title %}{{ book.title }} - Paragraphs View{% endblock %}
+
+{% block header %}
+<header class="header">
+    <div>
+        <h1>{{ book.title }} - Paragraphs</h1>
+        <span class="book-meta">{{ paragraphs|length }} paragraphs</span>
+    </div>
+    <nav>
+        <a href="{{ url_for('editor.edit', slug=book.slug) }}" class="btn">Editor</a>
+        <a href="{{ url_for('editor.groups_view', slug=book.slug) }}" class="btn btn-secondary">Groups</a>
+        <a href="{{ url_for('dashboard.index') }}">Dashboard</a>
+    </nav>
+</header>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .paragraphs-container {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 2rem;
+    }
+
+    .para-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: white;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .para-table th {
+        background: var(--primary);
+        color: white;
+        padding: 0.75rem 1rem;
+        text-align: left;
+        font-weight: 500;
+    }
+
+    .para-table td {
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid var(--border);
+        vertical-align: top;
+    }
+
+    .para-table tr:hover {
+        background: #f8fafc;
+    }
+
+    .para-table .col-num {
+        width: 50px;
+        color: #666;
+    }
+
+    .para-table .col-chapter {
+        width: 150px;
+        font-size: 0.85rem;
+        color: #666;
+    }
+
+    .para-table .col-page {
+        width: 60px;
+        text-align: center;
+    }
+
+    .para-table .col-group {
+        width: 60px;
+        text-align: center;
+    }
+
+    .para-table .col-refs {
+        width: 120px;
+    }
+
+    .para-text-cell {
+        max-width: 400px;
+    }
+
+    .para-text-preview {
+        line-height: 1.5;
+        max-height: 4.5em;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .badge {
+        padding: 0.15rem 0.4rem;
+        border-radius: 3px;
+        font-size: 0.7rem;
+    }
+
+    .badge-page {
+        background: var(--secondary);
+        color: white;
+    }
+
+    .badge-group {
+        background: var(--accent);
+        color: white;
+    }
+
+    .badge-quran {
+        background: #dbeafe;
+        color: #1d4ed8;
+    }
+
+    .badge-hadith {
+        background: #fef3c7;
+        color: #b45309;
+    }
+
+    .ref-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+    }
+
+    .filter-bar {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1rem;
+        padding: 1rem;
+        background: white;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+    }
+
+    .filter-bar input, .filter-bar select {
+        padding: 0.5rem;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+    }
+
+    .stats-bar {
+        display: flex;
+        gap: 2rem;
+        padding: 1rem;
+        background: #f0fdf4;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+    }
+
+    .stat-item {
+        text-align: center;
+    }
+
+    .stat-value {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: var(--primary);
+    }
+
+    .stat-label {
+        font-size: 0.8rem;
+        color: #666;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="paragraphs-container">
+    <!-- Stats -->
+    <div class="stats-bar">
+        <div class="stat-item">
+            <div class="stat-value">{{ paragraphs|length }}</div>
+            <div class="stat-label">Total Paragraphs</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value">{{ paragraphs|selectattr('para.page_number')|list|length }}</div>
+            <div class="stat-label">With Page #</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value">{{ paragraphs|selectattr('para.group_id')|list|length }}</div>
+            <div class="stat-label">Grouped</div>
+        </div>
+        <div class="stat-item">
+            {% set refs_count = namespace(value=0) %}
+            {% for p in paragraphs %}
+                {% set refs_count.value = refs_count.value + p.para.references.count() %}
+            {% endfor %}
+            <div class="stat-value">{{ refs_count.value }}</div>
+            <div class="stat-label">References</div>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <table class="para-table">
+        <thead>
+            <tr>
+                <th class="col-num">#</th>
+                <th class="col-chapter">Chapter</th>
+                <th>Text</th>
+                <th class="col-page">Page</th>
+                <th class="col-group">Group</th>
+                <th class="col-refs">References</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in paragraphs %}
+            <tr>
+                <td class="col-num">{{ item.para.order_index + 1 }}</td>
+                <td class="col-chapter">{{ item.chapter.title|truncate(20) if item.chapter.title else 'Ch ' ~ loop.index }}</td>
+                <td class="para-text-cell">
+                    <div class="para-text-preview">{{ item.para.text|truncate(150) }}</div>
+                </td>
+                <td class="col-page">
+                    {% if item.para.page_number %}
+                    <span class="badge badge-page">p.{{ item.para.page_number }}</span>
+                    {% else %}
+                    <span style="color:#999">-</span>
+                    {% endif %}
+                </td>
+                <td class="col-group">
+                    {% if item.para.group_id %}
+                    <span class="badge badge-group">G{{ item.para.group.order_index + 1 }}</span>
+                    {% else %}
+                    <span style="color:#999">-</span>
+                    {% endif %}
+                </td>
+                <td class="col-refs">
+                    <div class="ref-list">
+                        {% for ref in item.para.references.all() %}
+                        <span class="badge badge-{{ ref.ref_type }}">
+                            {% if ref.ref_type == 'quran' %}Q{{ ref.surah }}:{{ ref.ayah_start }}
+                            {% elif ref.ref_type == 'hadith' %}{{ ref.collection|capitalize }}
+                            {% endif %}
+                        </span>
+                        {% endfor %}
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="6" style="text-align:center; padding:2rem; color:#666;">
+                    No paragraphs found
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

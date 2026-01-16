@@ -9,6 +9,7 @@ from flask import Response
 from app.models import db, Book, Chapter, Paragraph, Version, Reference, Group
 from app.config import get_logger
 from app.services.exporter import export_book_json, export_lightrag_json
+from app.services.concept_extractor import extract_concepts, get_taxonomy_categories
 
 bp = Blueprint('api', __name__, url_prefix='/api')
 logger = get_logger()
@@ -735,3 +736,94 @@ def export_lightrag_route(slug):
         mimetype='application/json',
         headers={'Content-Disposition': f'attachment; filename="{slug}_lightrag.json"'}
     )
+
+
+@bp.route('/taxonomy')
+@login_required
+def get_taxonomy():
+    """Get available taxonomy categories.
+
+    Returns:
+        JSON with taxonomy categories
+    """
+    categories = get_taxonomy_categories()
+    return jsonify({'categories': categories})
+
+
+@bp.route('/paragraph/<int:para_id>/extract-concepts', methods=['POST'])
+@login_required
+def extract_paragraph_concepts(para_id):
+    """Extract concepts from a paragraph using LLM.
+
+    Args:
+        para_id: Paragraph ID
+
+    Returns:
+        JSON with extracted concepts
+    """
+    para = Paragraph.query.get_or_404(para_id)
+
+    result = extract_concepts(para.text, use_llm=True)
+
+    logger.info("concepts_extracted",
+                para_id=para_id,
+                concept_count=len(result.get('concepts', [])),
+                method=result.get('method'),
+                user=current_user.username)
+
+    return jsonify({
+        'status': 'ok',
+        'para_id': para_id,
+        'concepts': result.get('concepts', []),
+        'method': result.get('method'),
+        'confidence': result.get('confidence')
+    })
+
+
+@bp.route('/book/<slug>/extract-concepts', methods=['POST'])
+@login_required
+def extract_book_concepts(slug):
+    """Extract concepts from all paragraphs in a book.
+
+    Args:
+        slug: Book slug
+
+    Form data:
+        - limit: Max number of paragraphs to process (default: 10)
+
+    Returns:
+        JSON with extraction results
+    """
+    book = Book.query.filter_by(slug=slug).first_or_404()
+    limit = int(request.form.get('limit', 10))
+
+    results = []
+    processed = 0
+
+    for chapter in book.chapters.order_by(Chapter.order_index).all():
+        if processed >= limit:
+            break
+
+        for para in chapter.paragraphs.filter_by(deleted=False).order_by(Paragraph.order_index).all():
+            if processed >= limit:
+                break
+
+            result = extract_concepts(para.text, use_llm=True)
+            results.append({
+                'para_id': para.id,
+                'concepts': result.get('concepts', []),
+                'method': result.get('method')
+            })
+            processed += 1
+
+    logger.info("book_concepts_extracted",
+                book_slug=slug,
+                paragraphs_processed=processed,
+                user=current_user.username)
+
+    return jsonify({
+        'status': 'ok',
+        'book_slug': slug,
+        'processed': processed,
+        'results': results
+    })

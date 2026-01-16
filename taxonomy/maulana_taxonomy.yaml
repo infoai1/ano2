@@ -1,0 +1,320 @@
+# Maulana Wahiduddin Khan - Knowledge Taxonomy
+# Used for LLM-based concept extraction
+# Created: January 3, 2025
+
+categories:
+  GOD_REALIZATION:
+    display_name: "God Realization (Marefah)"
+    subcategories:
+      - introducing_god_through_science
+      - discovering_god_through_science
+      - discovering_god_in_creation
+      - discovering_your_helplessness
+      - relationship_between_god_and_man
+      - love_and_fear_of_god
+      - shukr_thanksgiving
+      - tawakkul_trust_in_god
+      - submission_to_god
+      - mercy_of_god
+      - god_oriented_living
+      - accountability_to_god
+      - remembering_god
+      - dua_prayer
+
+  ISLAM_21ST_CENTURY:
+    display_name: "Islam in 21st Century"
+    subcategories:
+      - islam_in_modern_age
+      - west_our_benefactor
+      - age_of_democracy
+      - age_of_peace
+      - age_of_opportunities
+      - opportunity_explosion
+      - freedom_in_islam
+      - spirit_of_enquiry
+      - shariah
+      - ijtihad
+      - islam_and_science
+      - islam_and_muslims
+      - islam_and_peace
+      - islam_and_spirituality
+      - islam_and_other_faiths
+      - principles_of_islam
+      - religious_freedom
+
+  CREATION_PLAN_OF_GOD:
+    display_name: "Creation Plan of God"
+    subcategories:
+      - purpose_of_life
+      - contradiction_in_mans_world
+      - man_created_for_paradise
+      - this_world_intro_to_paradise
+      - life_as_a_test
+      - free_will_and_destiny
+      - problem_of_evil_suffering
+      - search_for_paradise
+      - wisdom_of_creation
+      - road_to_paradise
+
+  PEACE:
+    display_name: "Peace"
+    subcategories:
+      - prophet_of_peace
+      - ideology_of_peace
+      - counter_ideology_of_peace
+      - ambassadors_of_peace
+      - conflict_resolution
+      - darul_islam_darul_harb
+      - fostering_religious_tolerance
+      - unilateral_peace
+      - peace_for_sake_of_peace
+      - positive_status_quoism
+      - pragmatism_not_idealism
+      - human_brotherhood
+      - nonviolence
+      - avoidance_of_war
+      - peace_and_justice
+      - enemy_vs_attacker
+      - dealing_with_oppression
+      - religion_to_follow_not_enforce
+      - solution_to_extremism
+      - solution_to_palestine
+      - solution_to_kashmir
+
+  QURAN:
+    display_name: "Quran"
+    subcategories:
+      - quran_and_sunnah
+      - quran_preserved_message
+      - universality_of_quran
+      - quran_for_all_humanity
+      - spiritual_interpretation_of_quran
+      - quran_teachings_wisdom
+      - quran_and_science
+      - quran_abiding_wonder
+      - message_of_quran
+      - translations_of_quran
+      - applying_quran_daily_life
+      - presenting_peaceful_quran
+
+  COUNTERING_POLITICAL_ISLAM:
+    display_name: "Countering Political Interpretation of Islam"
+    subcategories:
+      - error_of_political_interpretation
+      - political_extremism
+      - islamic_state_not_target
+      - jihad_peaceful_ideological_struggle
+      - conditions_of_war_in_islam
+      - arguments_against_suicide_bombing
+      - ghazwa_e_hind
+      - jihad_against_muslim_rulers
+      - who_are_kafirs
+      - violence_abrogated_today
+
+  SPIRITUALITY:
+    display_name: "Spirituality"
+    subcategories:
+      - spiritual_interpretation_of_islam
+      - contemplative_spirituality
+      - tafakkur_contemplation
+      - tawassum_taking_lessons
+      - tazkiyah_purification
+      - deconditioning_introspection
+      - inner_development
+      - positive_thinking
+      - intellectual_awakening
+      - intellectual_development
+      - no_ghulu_extremism
+      - intention_niyah
+      - good_character
+      - gentleness_compassion
+      - positive_personality
+      - humility_modesty
+      - hopefulness
+      - adjustment
+
+  DAWAH:
+    display_name: "Calling People to God (Dawah)"
+    subcategories:
+      - vision_of_islam
+      - responsibility_of_dawah
+      - middle_nation
+      - islam_scientific_religion
+      - signs_of_god
+      - call_towards_god
+      - jihad_with_quran
+      - relationship_dayee_madu
+      - passion_for_dawah
+      - intellectual_development_dawah
+      - patience_and_dawah
+
+  LIFE_MANAGEMENT:
+    display_name: "Life Management"
+    subcategories:
+      - acceptance_of_reality
+      - replanning_uturn_policy
+      - finding_ease_in_hardship
+      - finding_opportunities_in_problems
+      - crisis_management
+      - shock_management
+      - problem_management
+      - stress_management
+      - destressing
+      - time_management
+      - anger_management
+      - managing_suffering
+      - no_complaint
+      - value_of_forgiveness
+      - overcoming_depression
+      - suicide_not_option
+      - do_not_provoke
+      - blame_thyself
+      - master_of_situations
+      - successful_living
+      - challenge_response
+      - idealism_self_pragmatism_others
+      - relationships_management
+      - successful_family_life
+      - wife_intellectual_partner
+      - coping_with_grief
+      - dealing_with_criticism
+      - dealing_with_fear
+      - following_justice
+      - rights_without_activism
+      - in_giving_we_receive
+      - dialogue_in_controversy
+      - mutual_learning
+      - positive_dialogue
+
+  PROPHETIC_WISDOM:
+    display_name: "Prophetic Wisdom"
+    subcategories:
+      - prophet_of_peace
+      - prophet_sublime_character
+      - seerah_hadith_sunnah
+      - mercy_for_mankind
+      - termination_of_prophethood
+      - prophets_companions
+      - prophetic_model
+
+  DISCOVER_ISLAM:
+    display_name: "Discover Islam"
+    subcategories:
+      - rediscover_islam
+      - true_face_of_islam
+      - jihad_in_islam
+      - universal_brotherhood
+      - islamic_society
+      - family_life_in_islam
+      - woman_in_islam
+      - sufism
+      - education_in_islam
+
+  SPIRIT_OF_ISLAM:
+    display_name: "Spirit of Islam - Purpose & Meaning"
+    subcategories:
+      - man_know_thyself
+      - mans_mind_seeking
+      - concept_of_tomorrow
+      - hereafter_eternal_life
+      - paradise_gods_neighbourhood
+      - hell
+      - predictable_character
+      - growing_like_tree
+      - need_based_living
+      - art_of_conversion
+      - knowledge
+      - search_for_truth
+
+  FIVE_PILLARS:
+    display_name: "Five Pillars of Islam"
+    subcategories:
+      - shahadah
+      - salat_namaz
+      - saum_roza
+      - zakat_alms
+      - hajj_pilgrimage
+      - ibadat_worship
+      - sadaqa_charity
+      - piety
+      - straight_path
+      - speaking_truth
+      - good_to_parents
+
+  RE_ENGINEERING_MINDS:
+    display_name: "Re-engineering Minds"
+    subcategories:
+      - tazkiyah_positivity
+      - spreading_ideology_of_peace
+      - spreading_spiritual_islam
+      - interfaith_dialogue
+      - countering_violent_extremism
+      - training_ambassadors_of_peace
+      - training_life_management
+
+  MONOTHEISM:
+    display_name: "Monotheism"
+    subcategories:
+      - all_powerful_god
+      - living_god
+      - creator_distinct_from_creation
+      - interfaith_coexistence
+      - islah_reformation
+      - freedom_of_speech
+
+  DIVINE_SIGNS_NATURE:
+    display_name: "Divine Signs in Nature"
+    subcategories:
+      - discovering_god_through_science
+      - islam_scientific_religion
+      - signs_of_god
+      - god_oriented_living
+
+# Entity types for extraction
+entity_types:
+  people:
+    prophets:
+      - Prophet Muhammad
+      - Prophet Moses (Musa)
+      - Prophet Jesus (Isa)
+      - Prophet Abraham (Ibrahim)
+      - Prophet Noah (Nuh)
+      - Prophet Joseph (Yusuf)
+      - Prophet David (Dawud)
+      - Prophet Solomon (Sulayman)
+    companions:
+      - Abu Bakr
+      - Umar ibn al-Khattab
+      - Uthman ibn Affan
+      - Ali ibn Abi Talib
+      - Aisha
+      - Khadijah
+      - Fatimah
+      - Bilal
+    scholars:
+      - Imam Ghazali
+      - Ibn Taymiyyah
+      - Rumi
+      - Ibn Khaldun
+      - Ibn Rushd
+    contemporary:
+      - Gandhi
+      - Einstein
+      - Tolstoy
+      - Newton
+      - Darwin
+
+  places:
+    sacred:
+      - Mecca
+      - Medina
+      - Jerusalem
+      - Karbala
+    historical:
+      - Badr
+      - Uhud
+      - Hudaybiyyah
+    modern:
+      - Kashmir
+      - Palestine
+      - India

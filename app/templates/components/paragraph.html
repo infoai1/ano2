@@ -1,14 +1,41 @@
 <div class="paragraph-card {{ para.type }}" id="para-{{ para.id }}">
     <div class="paragraph-header">
         <span>#{{ para.order_index + 1 }}</span>
-        {% if para.page_number %}
-        <span class="page-badge" title="Page {{ para.page_number }}{% if para.page_confidence %} ({{ (para.page_confidence * 100)|int }}% confidence){% endif %}">p.{{ para.page_number }}</span>
-        {% else %}
-        <span class="page-badge page-not-found" title="Page not matched - click to set manually">No page</span>
-        {% endif %}
-        {% if para.group_id %}
-        <span class="group-badge" title="Group {{ para.group.order_index + 1 }}">G{{ para.group.order_index + 1 }}</span>
-        {% endif %}
+
+        <!-- Editable Page Badge -->
+        <span class="page-badge {% if not para.page_number %}page-not-found{% endif %}"
+              onclick="this.style.display='none'; this.nextElementSibling.style.display='inline-flex';"
+              title="Click to edit page number">
+            {% if para.page_number %}p.{{ para.page_number }}{% else %}No page{% endif %}
+        </span>
+        <form class="page-edit-form" style="display:none;"
+              hx-post="/api/paragraph/{{ para.id }}/page"
+              hx-trigger="submit"
+              hx-swap="outerHTML"
+              hx-target="#para-{{ para.id }}">
+            <input type="number" name="page" value="{{ para.page_number or '' }}"
+                   placeholder="Page #" min="1" style="width:60px;"
+                   onblur="if(!this.form.submitted){this.form.style.display='none';this.form.previousElementSibling.style.display='inline';}">
+            <button type="submit" onclick="this.form.submitted=true;">OK</button>
+        </form>
+
+        <!-- Editable Group Badge -->
+        <span class="group-badge"
+              onclick="this.style.display='none'; this.nextElementSibling.style.display='inline-flex';"
+              title="Click to change group">
+            {% if para.group_id %}G{{ para.group.order_index + 1 }}{% else %}No group{% endif %}
+        </span>
+        <form class="group-edit-form" style="display:none;"
+              hx-post="/api/paragraph/{{ para.id }}/group"
+              hx-trigger="submit"
+              hx-swap="outerHTML"
+              hx-target="#para-{{ para.id }}">
+            <input type="number" name="group_id" value="{{ para.group_id or '' }}"
+                   placeholder="Group ID" min="1" style="width:70px;"
+                   onblur="if(!this.form.submitted){this.form.style.display='none';this.form.previousElementSibling.style.display='inline';}">
+            <button type="submit" onclick="this.form.submitted=true;">OK</button>
+        </form>
+
         <select class="paragraph-type-select"
                 hx-post="/api/paragraph/{{ para.id }}/type"
                 hx-trigger="change"
@@ -20,8 +47,13 @@
             <option value="subheading" {% if para.type == 'subheading' %}selected{% endif %}>Subheading</option>
             <option value="quote" {% if para.type == 'quote' %}selected{% endif %}>Quote</option>
         </select>
+        <button type="button" class="view-toggle-btn" onclick="toggleView(this)" title="Toggle View/Edit">View</button>
     </div>
-    <div class="paragraph-text"
+    <!-- View mode (highlighted, read-only) -->
+    <div class="paragraph-text paragraph-view"
+         data-para-id="{{ para.id }}">{{ para.text|highlight_refs }}</div>
+    <!-- Edit mode (hidden by default) -->
+    <div class="paragraph-text paragraph-edit" style="display:none;"
          contenteditable="true"
          data-para-id="{{ para.id }}"
          hx-post="/api/paragraph/{{ para.id }}/text"
@@ -51,6 +83,36 @@
     </div>
     {% endif %}
     <div class="paragraph-actions">
+        <!-- Add Reference Button -->
+        <button type="button" class="add-ref-btn"
+                onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'flex':'none';">
+            + Add Reference
+        </button>
+
+        <!-- Add Reference Form (hidden by default) -->
+        <form class="add-ref-form" style="display:none;"
+              hx-post="/api/paragraph/{{ para.id }}/reference"
+              hx-trigger="submit"
+              hx-swap="outerHTML"
+              hx-target="#para-{{ para.id }}">
+            <select name="ref_type" onchange="toggleRefFields(this)" required>
+                <option value="">Type...</option>
+                <option value="quran">Quran</option>
+                <option value="hadith">Hadith</option>
+            </select>
+            <span class="quran-fields" style="display:none;">
+                <input type="number" name="surah" placeholder="Surah" min="1" max="114" style="width:60px;">
+                <input type="number" name="ayah_start" placeholder="Ayah" min="1" style="width:60px;">
+                <input type="number" name="ayah_end" placeholder="End" min="1" style="width:50px;">
+            </span>
+            <span class="hadith-fields" style="display:none;">
+                <input type="text" name="collection" placeholder="Collection" style="width:80px;">
+                <input type="text" name="hadith_number" placeholder="Number" style="width:60px;">
+            </span>
+            <button type="submit">Add</button>
+            <button type="button" onclick="this.parentElement.style.display='none';">X</button>
+        </form>
+
         <button class="delete-btn"
                 hx-delete="/api/paragraph/{{ para.id }}"
                 hx-confirm="Delete this paragraph?"

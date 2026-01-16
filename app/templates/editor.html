@@ -10,11 +10,31 @@
     </div>
     <nav>
         <a href="{{ url_for('dashboard.index') }}">Dashboard</a>
+        <a href="{{ url_for('editor.groups_view', slug=book.slug) }}" class="btn btn-secondary">Groups</a>
+        <a href="{{ url_for('editor.paragraphs_view', slug=book.slug) }}" class="btn btn-secondary">Paragraphs</a>
         <button class="btn" hx-post="/api/book/{{ book.slug }}/save" hx-swap="none" hx-indicator="#save-indicator">
             Save
         </button>
         <span id="save-indicator" class="htmx-indicator">Saving...</span>
-        <a href="/api/book/{{ book.slug }}/export/book-json" class="btn btn-secondary" style="margin-left: 0.5rem;">Export JSON</a>
+        <div class="dropdown" style="display:inline-block; position:relative;">
+            <button class="btn btn-secondary dropdown-toggle" onclick="this.nextElementSibling.classList.toggle('show')">
+                Export ▾
+            </button>
+            <div class="dropdown-menu">
+                <a href="/api/book/{{ book.slug }}/export/book-json">Book JSON</a>
+                <a href="/api/book/{{ book.slug }}/export/lightrag">LightRAG JSON</a>
+            </div>
+        </div>
+        <div class="dropdown" style="display:inline-block; position:relative;">
+            <button class="btn btn-accent dropdown-toggle" onclick="this.nextElementSibling.classList.toggle('show')">
+                Extract ▾
+            </button>
+            <div class="dropdown-menu">
+                <a href="#" onclick="extractConcepts(10); return false;">Extract 10</a>
+                <a href="#" onclick="extractConcepts(50); return false;">Extract 50</a>
+                <a href="#" onclick="extractConcepts(999); return false;">Extract All</a>
+            </div>
+        </div>
         <a href="{{ url_for('auth.logout') }}">Logout</a>
     </nav>
 </header>
@@ -307,6 +327,188 @@
         padding: 3rem;
         color: #666;
     }
+
+    /* Page/Group edit forms */
+    .page-edit-form, .group-edit-form {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+
+    .page-edit-form input, .group-edit-form input {
+        padding: 0.2rem 0.4rem;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        font-size: 0.75rem;
+    }
+
+    .page-edit-form button, .group-edit-form button {
+        padding: 0.2rem 0.4rem;
+        font-size: 0.7rem;
+        border: 1px solid var(--primary);
+        background: var(--primary);
+        color: white;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    /* Add Reference form */
+    .add-ref-btn {
+        background: #e0f2fe;
+        border: 1px solid #7dd3fc;
+        color: #0369a1;
+    }
+
+    .add-ref-btn:hover {
+        background: #bae6fd;
+    }
+
+    .add-ref-form {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.3rem;
+        align-items: center;
+        padding: 0.5rem;
+        background: #f8fafc;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        margin-top: 0.5rem;
+    }
+
+    .add-ref-form select, .add-ref-form input {
+        padding: 0.25rem 0.4rem;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        font-size: 0.8rem;
+    }
+
+    .add-ref-form button {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.8rem;
+        border: 1px solid var(--primary);
+        background: var(--primary);
+        color: white;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    .add-ref-form button[type="button"] {
+        background: #f1f5f9;
+        color: #64748b;
+        border-color: #cbd5e1;
+    }
+
+    /* Highlighted references in text */
+    .highlight-quran {
+        background: #dbeafe;
+        color: #1d4ed8;
+        padding: 0 2px;
+        border-radius: 2px;
+    }
+
+    .highlight-hadith {
+        background: #fef3c7;
+        color: #b45309;
+        padding: 0 2px;
+        border-radius: 2px;
+    }
+
+    .highlight-year {
+        background: #d1fae5;
+        color: #065f46;
+        padding: 0 2px;
+        border-radius: 2px;
+    }
+
+    /* View/Edit toggle */
+    .view-toggle-btn {
+        padding: 0.15rem 0.4rem;
+        font-size: 0.7rem;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        background: #f1f5f9;
+        cursor: pointer;
+        margin-left: auto;
+    }
+
+    .view-toggle-btn:hover {
+        background: #e2e8f0;
+    }
+
+    .view-toggle-btn.editing {
+        background: #fef3c7;
+        border-color: #fcd34d;
+    }
+
+    .paragraph-view {
+        cursor: pointer;
+    }
+
+    .paragraph-edit {
+        background: #fffbeb;
+        border: 1px dashed #fcd34d;
+        border-radius: 4px;
+        padding: 0.5rem;
+    }
+
+    /* Dropdown menu */
+    .dropdown-menu {
+        display: none;
+        position: absolute;
+        right: 0;
+        top: 100%;
+        background: white;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        min-width: 150px;
+        z-index: 100;
+    }
+
+    .dropdown-menu.show {
+        display: block;
+    }
+
+    .dropdown-menu a {
+        display: block;
+        padding: 0.5rem 1rem;
+        color: var(--text);
+        text-decoration: none;
+    }
+
+    .dropdown-menu a:hover {
+        background: var(--background);
+    }
+
+    .btn-accent {
+        background: var(--accent);
+        color: white;
+        border: 1px solid var(--accent);
+    }
+
+    .btn-accent:hover {
+        opacity: 0.9;
+    }
+
+    /* Concept tags */
+    .concept-tag {
+        display: inline-block;
+        padding: 0.15rem 0.4rem;
+        border-radius: 3px;
+        font-size: 0.7rem;
+        background: #d1fae5;
+        color: #065f46;
+        margin-right: 0.3rem;
+        margin-top: 0.3rem;
+    }
+
+    .extraction-status {
+        padding: 0.5rem 1rem;
+        background: #fef3c7;
+        border-radius: 4px;
+        margin: 1rem 0;
+        font-size: 0.9rem;
+    }
 </style>
 {% endblock %}
 
@@ -438,6 +640,94 @@ function showToast(message, type = 'success') {
     toast.textContent = message;
     container.appendChild(toast);
     setTimeout(() => toast.remove(), 3000);
+}
+
+// Toggle reference type fields
+function toggleRefFields(select) {
+    const form = select.closest('form');
+    const quranFields = form.querySelector('.quran-fields');
+    const hadithFields = form.querySelector('.hadith-fields');
+
+    quranFields.style.display = 'none';
+    hadithFields.style.display = 'none';
+
+    if (select.value === 'quran') {
+        quranFields.style.display = 'inline-flex';
+    } else if (select.value === 'hadith') {
+        hadithFields.style.display = 'inline-flex';
+    }
+}
+
+// Toggle between View (highlighted) and Edit mode
+function toggleView(btn) {
+    const card = btn.closest('.paragraph-card');
+    const viewDiv = card.querySelector('.paragraph-view');
+    const editDiv = card.querySelector('.paragraph-edit');
+
+    if (viewDiv.style.display === 'none') {
+        // Switch to View mode
+        viewDiv.style.display = 'block';
+        editDiv.style.display = 'none';
+        btn.textContent = 'View';
+        btn.classList.remove('editing');
+    } else {
+        // Switch to Edit mode
+        viewDiv.style.display = 'none';
+        editDiv.style.display = 'block';
+        editDiv.focus();
+        btn.textContent = 'Edit';
+        btn.classList.add('editing');
+    }
+}
+
+// Extract concepts using LLM
+async function extractConcepts(limit) {
+    const slug = '{{ book.slug }}';
+    showToast(`Extracting concepts from ${limit} paragraphs...`);
+
+    try {
+        const formData = new FormData();
+        formData.append('limit', limit);
+
+        const response = await fetch(`/api/book/${slug}/extract-concepts`, {
+            method: 'POST',
+            body: formData
+        });
+
+        const data = await response.json();
+
+        if (data.status === 'ok') {
+            showToast(`Extracted concepts from ${data.processed} paragraphs (${data.results.filter(r => r.concepts.length > 0).length} with concepts)`);
+
+            // Display concepts on each paragraph
+            data.results.forEach(result => {
+                if (result.concepts.length > 0) {
+                    const paraCard = document.getElementById(`para-${result.para_id}`);
+                    if (paraCard) {
+                        let conceptsDiv = paraCard.querySelector('.concepts-display');
+                        if (!conceptsDiv) {
+                            conceptsDiv = document.createElement('div');
+                            conceptsDiv.className = 'concepts-display';
+                            const refsDiv = paraCard.querySelector('.paragraph-refs');
+                            if (refsDiv) {
+                                refsDiv.after(conceptsDiv);
+                            } else {
+                                const textDiv = paraCard.querySelector('.paragraph-view') || paraCard.querySelector('.paragraph-text');
+                                textDiv.after(conceptsDiv);
+                            }
+                        }
+                        conceptsDiv.innerHTML = result.concepts.map(c =>
+                            `<span class="concept-tag">${c.category}${c.subcategory ? ':' + c.subcategory : ''}</span>`
+                        ).join('');
+                    }
+                }
+            });
+        } else {
+            showToast('Extraction failed', 'error');
+        }
+    } catch (error) {
+        showToast('Extraction error: ' + error.message, 'error');
+    }
 }
 </script>
 {% endblock %}

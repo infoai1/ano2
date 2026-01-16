@@ -1,4 +1,6 @@
 """Flask application factory for Annotation Tool v2."""
+import re
+from markupsafe import Markup, escape
 from flask import Flask, render_template, request, jsonify
 from flask_login import LoginManager
 
@@ -7,6 +9,50 @@ from app.models import db, User
 
 
 login_manager = LoginManager()
+
+
+def highlight_references(text):
+    """Highlight Quran, Hadith, and year references in text.
+
+    Args:
+        text: The paragraph text to process
+
+    Returns:
+        Markup-safe HTML with highlighted references
+    """
+    if not text:
+        return text
+
+    # Escape the text first for safety
+    text = str(escape(text))
+
+    # Quran patterns: (2:255), Quran 2:255, Surah Al-Baqarah, etc.
+    quran_patterns = [
+        r'\((\d{1,3}:\d{1,3}(?:-\d{1,3})?)\)',  # (2:255) or (2:255-257)
+        r'(?:Quran|Qur\'?an)\s+(\d{1,3}:\d{1,3}(?:-\d{1,3})?)',  # Quran 2:255
+        r'(?:Surah|Sura)\s+([\w\-]+(?:\s+[\w\-]+)?)',  # Surah Al-Baqarah
+    ]
+
+    # Hadith patterns: Bukhari 1234, Sahih Muslim 567, etc.
+    hadith_patterns = [
+        r'(?:Sahih\s+)?(?:Bukhari|Muslim|Tirmidhi|Abu\s+Dawud|Ibn\s+Majah|Nasai|Muwatta)\s*[,:]?\s*(\d+)',
+    ]
+
+    # Year patterns: 1925, 2021, etc. (years between 1000-2100)
+    year_pattern = r'\b(1\d{3}|20\d{2}|21\d{2})\b'
+
+    # Apply Quran highlighting
+    for pattern in quran_patterns:
+        text = re.sub(pattern, r'<span class="highlight-quran">\g<0></span>', text, flags=re.IGNORECASE)
+
+    # Apply Hadith highlighting
+    for pattern in hadith_patterns:
+        text = re.sub(pattern, r'<span class="highlight-hadith">\g<0></span>', text, flags=re.IGNORECASE)
+
+    # Apply Year highlighting (only if not already inside a highlight span)
+    text = re.sub(year_pattern, r'<span class="highlight-year">\1</span>', text)
+
+    return Markup(text)
 
 
 def create_app(testing=False):
@@ -55,6 +101,9 @@ def create_app(testing=False):
 
     # Register error handlers
     _register_error_handlers(app)
+
+    # Register template filters
+    app.jinja_env.filters['highlight_refs'] = highlight_references
 
     return app
 
