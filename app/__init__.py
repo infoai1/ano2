@@ -76,10 +76,10 @@ def highlight_references(text):
     )
 
     # Apply Islamic keyword highlighting (from config)
+    # Use negative lookbehind to avoid matching inside HTML tags/attributes
     for keyword in ISLAMIC_KEYWORDS:
-        # Word boundary match, case insensitive
-        pattern = r'\b(' + re.escape(keyword) + r')\b'
-        # Don't highlight if already inside a span
+        # (?<![-="\']) prevents matching after hyphen (class names), equals, quotes
+        pattern = r'(?<![-="\'])\b(' + re.escape(keyword) + r')\b'
         text = re.sub(
             pattern,
             r'<span class="highlight-keyword highlight-islamic" title="Islamic term">\1</span>',
@@ -89,7 +89,7 @@ def highlight_references(text):
 
     # Apply People keyword highlighting
     for keyword in PEOPLE_KEYWORDS:
-        pattern = r'\b(' + re.escape(keyword) + r')\b'
+        pattern = r'(?<![-="\'])\b(' + re.escape(keyword) + r')\b'
         text = re.sub(
             pattern,
             r'<span class="highlight-keyword highlight-people" title="Person">\1</span>',
@@ -99,7 +99,7 @@ def highlight_references(text):
 
     # Apply Place keyword highlighting
     for keyword in PLACE_KEYWORDS:
-        pattern = r'\b(' + re.escape(keyword) + r')\b'
+        pattern = r'(?<![-="\'])\b(' + re.escape(keyword) + r')\b'
         text = re.sub(
             pattern,
             r'<span class="highlight-keyword highlight-place" title="Place">\1</span>',
