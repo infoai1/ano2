@@ -46,12 +46,29 @@ def update_paragraph_type(para_id):
 
     old_type = para.type
     para.type = new_type
+
+    # If changing FROM heading to non-heading, update chapter title if it matches
+    chapter_title_cleared = False
+    if old_type == 'heading' and new_type != 'heading':
+        chapter = para.chapter
+        # Check if this paragraph's text was used as chapter title
+        if chapter and chapter.title and para.text:
+            # Compare first 100 chars to handle minor differences
+            if chapter.title.strip()[:100] == para.text.strip()[:100]:
+                chapter.title = None  # Clear the chapter title
+                chapter_title_cleared = True
+                logger.info("chapter_title_cleared",
+                            chapter_id=chapter.id,
+                            para_id=para_id,
+                            reason="paragraph_demoted_from_heading")
+
     db.session.commit()
 
     logger.info("paragraph_type_updated",
                 para_id=para_id,
                 old_type=old_type,
                 new_type=new_type,
+                chapter_title_cleared=chapter_title_cleared,
                 user=current_user.username)
 
     # Return the updated paragraph card for HTMX
