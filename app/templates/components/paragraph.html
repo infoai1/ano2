@@ -47,19 +47,10 @@
             <option value="subheading" {% if para.type == 'subheading' %}selected{% endif %}>Subheading</option>
             <option value="quote" {% if para.type == 'quote' %}selected{% endif %}>Quote</option>
         </select>
-        <button type="button" class="view-toggle-btn" onclick="toggleView(this)" title="Toggle View/Edit">View</button>
     </div>
-    <!-- View mode (highlighted, read-only) -->
+    <!-- Paragraph text (read-only) -->
     <div class="paragraph-text paragraph-view"
          data-para-id="{{ para.id }}">{{ para.text|highlight_refs }}</div>
-    <!-- Edit mode (hidden by default) -->
-    <div class="paragraph-text paragraph-edit" style="display:none;"
-         contenteditable="true"
-         data-para-id="{{ para.id }}"
-         hx-post="/api/paragraph/{{ para.id }}/text"
-         hx-trigger="blur"
-         hx-vals='js:{"text": event.target.innerText}'
-         hx-swap="none">{{ para.text }}</div>
     {% set refs = para.references.all() %}
     {% if refs %}
     <div class="paragraph-refs">
@@ -112,11 +103,5 @@
             <button type="submit">Add</button>
             <button type="button" onclick="this.parentElement.style.display='none';">X</button>
         </form>
-
-        <button class="delete-btn"
-                hx-delete="/api/paragraph/{{ para.id }}"
-                hx-confirm="Delete this paragraph?"
-                hx-target="#para-{{ para.id }}"
-                hx-swap="outerHTML">Delete</button>
     </div>
 </div>
