@@ -636,6 +636,84 @@ def delete_book(slug):
     return jsonify({'status': 'ok', 'message': f'Book "{book.title}" deleted'})
 
 
+@bp.route('/book/<slug>/paragraphs/bulk-delete', methods=['POST'])
+@login_required
+def bulk_delete_paragraphs(slug):
+    """Bulk soft-delete paragraphs by order indices.
+
+    Args:
+        slug: Book slug
+
+    JSON body:
+        - indices: List of 1-based paragraph numbers to delete
+
+    Returns:
+        JSON with deleted count and data for undo
+    """
+    book = Book.query.filter_by(slug=slug).first_or_404()
+    indices = request.json.get('indices', [])
+
+    deleted_data = []
+
+    # Get all paragraphs for this book with their positions
+    for chapter in book.chapters:
+        for para in chapter.paragraphs.filter_by(deleted=False).all():
+            # indices are 1-based, order_index is 0-based
+            if (para.order_index + 1) in indices:
+                deleted_data.append({
+                    'id': para.id,
+                    'chapter_id': para.chapter_id,
+                    'order_index': para.order_index,
+                    'text_preview': para.text[:50] if para.text else ''
+                })
+                para.deleted = True
+
+    db.session.commit()
+
+    logger.info("bulk_delete_paragraphs",
+                book_slug=slug,
+                count=len(deleted_data),
+                indices=indices,
+                user=current_user.username)
+
+    return jsonify({
+        'deleted': len(deleted_data),
+        'deleted_data': deleted_data
+    })
+
+
+@bp.route('/book/<slug>/paragraphs/bulk-restore', methods=['POST'])
+@login_required
+def bulk_restore_paragraphs(slug):
+    """Restore soft-deleted paragraphs to original positions.
+
+    Args:
+        slug: Book slug
+
+    JSON body:
+        - paragraph_ids: List of paragraph IDs to restore
+
+    Returns:
+        JSON with restored count
+    """
+    book = Book.query.filter_by(slug=slug).first_or_404()
+    para_ids = request.json.get('paragraph_ids', [])
+
+    count = Paragraph.query.filter(
+        Paragraph.id.in_(para_ids)
+    ).update({'deleted': False}, synchronize_session=False)
+
+    db.session.commit()
+
+    logger.info("bulk_restore_paragraphs",
+                book_slug=slug,
+                count=count,
+                para_ids=para_ids,
+                user=current_user.username)
+
+    return jsonify({'restored': count})
+
+
 def _build_export_data(book):
     """Build export data dict from Book model.
 

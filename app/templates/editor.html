@@ -709,6 +709,182 @@
         font-size: 0.9rem;
     }
 
+    /* Modal overlay */
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+
+    .modal-content {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        max-width: 450px;
+        width: 90%;
+    }
+
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .modal-header h3 {
+        margin: 0;
+        font-size: 1.1rem;
+    }
+
+    .modal-close {
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+        color: #666;
+    }
+
+    .modal-body {
+        padding: 1.5rem;
+    }
+
+    .modal-body label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+    }
+
+    .modal-body input {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        font-size: 1rem;
+        margin-bottom: 1rem;
+        box-sizing: border-box;
+    }
+
+    .delete-examples {
+        background: #f8f9fa;
+        padding: 0.75rem;
+        border-radius: 4px;
+        margin-bottom: 1rem;
+    }
+
+    .delete-examples small {
+        color: #666;
+    }
+
+    .delete-examples ul {
+        margin: 0.5rem 0 0 1rem;
+        padding: 0;
+    }
+
+    .delete-examples li {
+        margin: 0.25rem 0;
+        font-size: 0.85rem;
+    }
+
+    .delete-examples code {
+        background: #e9ecef;
+        padding: 0.1rem 0.3rem;
+        border-radius: 2px;
+    }
+
+    .delete-warning {
+        background: #fff3cd;
+        color: #856404;
+        padding: 0.75rem;
+        border-radius: 4px;
+        font-size: 0.9rem;
+    }
+
+    .modal-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.75rem;
+        padding: 1rem 1.5rem;
+        border-top: 1px solid var(--border);
+    }
+
+    .btn-secondary {
+        background: #f1f5f9;
+        color: #64748b;
+        border: 1px solid #cbd5e1;
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    .btn-secondary:hover {
+        background: #e2e8f0;
+    }
+
+    .btn-danger {
+        background: #dc2626;
+        color: white;
+        border: 1px solid #dc2626;
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    .btn-danger:hover {
+        background: #b91c1c;
+    }
+
+    /* Undo toast */
+    .undo-toast {
+        position: fixed;
+        bottom: 2rem;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--accent);
+        color: white;
+        padding: 0.75rem 1.25rem;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        z-index: 1001;
+        animation: slideUp 0.3s ease;
+    }
+
+    @keyframes slideUp {
+        from { transform: translateX(-50%) translateY(100%); opacity: 0; }
+        to { transform: translateX(-50%) translateY(0); opacity: 1; }
+    }
+
+    .undo-toast button {
+        background: rgba(255, 255, 255, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    .undo-toast button:hover {
+        background: rgba(255, 255, 255, 0.3);
+    }
+
+    .undo-dismiss {
+        background: none !important;
+        border: none !important;
+        font-size: 1.2rem;
+        padding: 0 !important;
+        margin-left: 0.5rem;
+    }
+
     /* Responsive design */
     @media (max-width: 1024px) {
         .editor-container {
@@ -816,6 +992,13 @@
             <span class="icon">🕐</span>
             <span class="label">Versions</span>
         </button>
+
+        <div class="sidebar-divider"></div>
+
+        <button class="sidebar-btn" onclick="openDeletePanel()" title="Delete paragraphs">
+            <span class="icon">🗑️</span>
+            <span class="label">Delete</span>
+        </button>
     </aside>
 
     <!-- Main Content Area -->
@@ -875,13 +1058,6 @@
                     {% endfor %}
                 </div>
                 {% endif %}
-                <div class="paragraph-actions">
-                    <button class="delete-btn"
-                            hx-delete="/api/paragraph/{{ para.id }}"
-                            hx-confirm="Delete this paragraph?"
-                            hx-target="#para-{{ para.id }}"
-                            hx-swap="outerHTML">Delete</button>
-                </div>
             </div>
             {% else %}
             <p class="empty-state">No paragraphs in this chapter</p>
@@ -929,6 +1105,42 @@
 </div>
 
 <div id="toast-container"></div>
+
+<!-- Delete Panel Modal -->
+<div id="delete-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-content delete-modal">
+        <div class="modal-header">
+            <h3>🗑️ Delete Paragraphs</h3>
+            <button class="modal-close" onclick="closeDeletePanel()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <label for="delete-range">Enter paragraph numbers or ranges:</label>
+            <input type="text" id="delete-range" placeholder="e.g., 1-5, 10, 15-20">
+            <div class="delete-examples">
+                <small>Examples:</small>
+                <ul>
+                    <li><code>5</code> - delete paragraph #5</li>
+                    <li><code>1-10</code> - delete paragraphs 1 through 10</li>
+                    <li><code>1-5, 10, 15-20</code> - mixed selection</li>
+                </ul>
+            </div>
+            <div class="delete-warning">
+                ⚠️ This action can be undone using the Undo button that appears after deletion.
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeDeletePanel()">Cancel</button>
+            <button class="btn btn-danger" onclick="executeDelete()">Delete Selected</button>
+        </div>
+    </div>
+</div>
+
+<!-- Undo Toast (appears after deletion) -->
+<div id="undo-toast" class="undo-toast" style="display: none;">
+    <span class="undo-message">✓ Deleted <span id="undo-count">0</span> paragraphs</span>
+    <button class="btn btn-small" onclick="undoDelete()">Undo</button>
+    <button class="undo-dismiss" onclick="dismissUndo()">&times;</button>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -1114,6 +1326,164 @@ document.addEventListener('click', function(e) {
                 }
             });
         }
+    }
+});
+
+// ===== BULK DELETE PANEL =====
+
+// Store last deletion for undo
+let lastDeletion = null;
+let undoTimeout = null;
+
+function openDeletePanel() {
+    document.getElementById('delete-modal').style.display = 'flex';
+    document.getElementById('delete-range').value = '';
+    document.getElementById('delete-range').focus();
+}
+
+function closeDeletePanel() {
+    document.getElementById('delete-modal').style.display = 'none';
+}
+
+function parseRange(rangeStr) {
+    // Parse "1-5, 10, 15-20" into [1,2,3,4,5,10,15,16,17,18,19,20]
+    const indices = [];
+    const parts = rangeStr.split(',').map(s => s.trim()).filter(s => s);
+
+    for (const part of parts) {
+        if (part.includes('-')) {
+            const [start, end] = part.split('-').map(n => parseInt(n.trim()));
+            if (!isNaN(start) && !isNaN(end)) {
+                for (let i = Math.min(start, end); i <= Math.max(start, end); i++) {
+                    indices.push(i);
+                }
+            }
+        } else {
+            const n = parseInt(part);
+            if (!isNaN(n)) indices.push(n);
+        }
+    }
+    return [...new Set(indices)].sort((a, b) => a - b);  // Unique, sorted
+}
+
+async function executeDelete() {
+    const rangeStr = document.getElementById('delete-range').value.trim();
+    if (!rangeStr) {
+        showToast('Please enter paragraph numbers to delete', 'error');
+        return;
+    }
+
+    const indices = parseRange(rangeStr);
+    if (indices.length === 0) {
+        showToast('Invalid range format', 'error');
+        return;
+    }
+
+    // Confirm before deletion
+    if (!confirm(`Delete ${indices.length} paragraph(s)?\n\nParagraphs: ${indices.join(', ')}\n\nYou can undo this action.`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/book/{{ book.slug }}/paragraphs/bulk-delete`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({indices: indices})
+        });
+
+        const data = await response.json();
+
+        if (data.deleted > 0) {
+            // Store for undo
+            lastDeletion = {
+                indices: indices,
+                deleted_data: data.deleted_data
+            };
+
+            // Remove cards from DOM (visual only - DB has soft delete)
+            data.deleted_data.forEach(item => {
+                const card = document.getElementById(`para-${item.id}`);
+                if (card) {
+                    card.style.display = 'none';
+                    card.dataset.deleted = 'true';
+                }
+            });
+
+            // Show undo toast
+            showUndoToast(data.deleted);
+            closeDeletePanel();
+        } else {
+            showToast('No paragraphs found with those numbers', 'error');
+        }
+    } catch (error) {
+        showToast('Delete failed: ' + error.message, 'error');
+    }
+}
+
+function showUndoToast(count) {
+    const toast = document.getElementById('undo-toast');
+    document.getElementById('undo-count').textContent = count;
+    toast.style.display = 'flex';
+
+    // Auto-dismiss after 10 seconds
+    if (undoTimeout) clearTimeout(undoTimeout);
+    undoTimeout = setTimeout(() => {
+        dismissUndo();
+    }, 10000);
+}
+
+function dismissUndo() {
+    document.getElementById('undo-toast').style.display = 'none';
+    if (undoTimeout) clearTimeout(undoTimeout);
+    lastDeletion = null;  // Clear undo data
+}
+
+async function undoDelete() {
+    if (!lastDeletion || !lastDeletion.deleted_data) {
+        showToast('Nothing to undo', 'error');
+        return;
+    }
+
+    try {
+        const paraIds = lastDeletion.deleted_data.map(d => d.id);
+
+        const response = await fetch(`/api/book/{{ book.slug }}/paragraphs/bulk-restore`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({paragraph_ids: paraIds})
+        });
+
+        const data = await response.json();
+
+        if (data.restored > 0) {
+            // Restore cards in DOM (show them again)
+            lastDeletion.deleted_data.forEach(item => {
+                const card = document.getElementById(`para-${item.id}`);
+                if (card) {
+                    card.style.display = '';
+                    delete card.dataset.deleted;
+                }
+            });
+
+            showToast(`Restored ${data.restored} paragraphs`);
+            dismissUndo();
+        }
+    } catch (error) {
+        showToast('Undo failed: ' + error.message, 'error');
+    }
+}
+
+// Close modal on Escape
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeDeletePanel();
+    }
+});
+
+// Close modal on overlay click
+document.getElementById('delete-modal')?.addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeDeletePanel();
     }
 });
 </script>
