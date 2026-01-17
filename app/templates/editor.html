@@ -135,6 +135,7 @@
     }
 
     .sidebar-btn {
+        position: relative;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -885,6 +886,48 @@
         margin-left: 0.5rem;
     }
 
+    /* Trash Panel styles */
+    .trash-count {
+        position: absolute;
+        top: 2px;
+        right: 2px;
+        background: #ef4444;
+        color: white;
+        font-size: 0.6rem;
+        padding: 0.1rem 0.3rem;
+        border-radius: 999px;
+        min-width: 14px;
+        text-align: center;
+    }
+
+    .trash-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .trash-item:hover {
+        background: var(--background);
+    }
+
+    .trash-item-text {
+        flex: 1;
+        font-size: 0.9rem;
+        color: #666;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 400px;
+    }
+
+    .empty-trash {
+        text-align: center;
+        padding: 2rem;
+        color: #999;
+    }
+
     /* Responsive design */
     @media (max-width: 1024px) {
         .editor-container {
@@ -1005,6 +1048,12 @@
         <button class="sidebar-btn" onclick="openDeletePanel()" title="Delete paragraphs">
             <span class="icon">🗑️</span>
             <span class="label">Delete</span>
+        </button>
+
+        <button class="sidebar-btn" onclick="openTrashPanel()" title="View deleted paragraphs">
+            <span class="icon">♻️</span>
+            <span class="label">Trash</span>
+            <span class="trash-count" id="trash-count" style="display:none;"></span>
         </button>
     </aside>
 
@@ -1138,6 +1187,23 @@
         <div class="modal-footer">
             <button class="btn btn-secondary" onclick="closeDeletePanel()">Cancel</button>
             <button class="btn btn-danger" onclick="executeDelete()">Delete Selected</button>
+        </div>
+    </div>
+</div>
+
+<!-- Trash Panel Modal -->
+<div id="trash-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+            <h3>♻️ Deleted Paragraphs</h3>
+            <button class="modal-close" onclick="closeTrashPanel()">&times;</button>
+        </div>
+        <div class="modal-body" id="trash-list" style="max-height: 400px; overflow-y: auto;">
+            Loading...
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeTrashPanel()">Close</button>
+            <button class="btn btn-accent" onclick="restoreAllDeleted()">Restore All</button>
         </div>
     </div>
 </div>
@@ -1484,6 +1550,7 @@ async function undoDelete() {
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
         closeDeletePanel();
+        closeTrashPanel();
     }
 });
 
@@ -1491,6 +1558,93 @@ document.addEventListener('keydown', function(e) {
 document.getElementById('delete-modal')?.addEventListener('click', function(e) {
     if (e.target === this) {
         closeDeletePanel();
+    }
+});
+
+// ===== TRASH PANEL =====
+
+// Track deleted paragraphs
+function getDeletedParagraphs() {
+    return Array.from(document.querySelectorAll('.paragraph-card[data-deleted="true"]'));
+}
+
+function updateTrashCount() {
+    const count = getDeletedParagraphs().length;
+    const badge = document.getElementById('trash-count');
+    if (count > 0) {
+        badge.textContent = count;
+        badge.style.display = 'block';
+    } else {
+        badge.style.display = 'none';
+    }
+}
+
+function openTrashPanel() {
+    const modal = document.getElementById('trash-modal');
+    const list = document.getElementById('trash-list');
+    const deleted = getDeletedParagraphs();
+
+    if (deleted.length === 0) {
+        list.innerHTML = '<div class="empty-trash">♻️ Trash is empty</div>';
+    } else {
+        list.innerHTML = deleted.map(card => {
+            const paraId = card.id.replace('para-', '');  // DB ID for restore API
+            const displayNum = card.querySelector('.paragraph-header span')?.textContent || '#?';  // Gets "#6"
+            const text = card.querySelector('.paragraph-text')?.innerText?.slice(0, 80) || 'No text';
+            return `<div class="trash-item"><span class="trash-item-text">${displayNum}: ${text}...</span><button class="btn btn-small btn-accent" onclick="restoreParagraph(${paraId})">Restore</button></div>`;
+        }).join('');
+    }
+    modal.style.display = 'flex';
+}
+
+function closeTrashPanel() {
+    document.getElementById('trash-modal').style.display = 'none';
+}
+
+async function restoreParagraph(paraId) {
+    const card = document.getElementById(`para-${paraId}`);
+    const displayNum = card?.querySelector('.paragraph-header span')?.textContent || '#' + paraId;
+    const response = await fetch(`/api/book/{{ book.slug }}/paragraphs/bulk-restore`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({paragraph_ids: [paraId]})
+    });
+    if (response.ok) {
+        if (card) { card.style.display = ''; delete card.dataset.deleted; }
+        showToast('Restored ' + displayNum);
+        updateTrashCount();
+        openTrashPanel();  // Refresh the list
+    }
+}
+
+async function restoreAllDeleted() {
+    const deleted = getDeletedParagraphs();
+    if (deleted.length === 0) return;
+    const paraIds = deleted.map(card => parseInt(card.id.replace('para-', '')));
+    const response = await fetch(`/api/book/{{ book.slug }}/paragraphs/bulk-restore`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({paragraph_ids: paraIds})
+    });
+    if (response.ok) {
+        deleted.forEach(card => { card.style.display = ''; delete card.dataset.deleted; });
+        showToast(`Restored ${paraIds.length} paragraphs`);
+        updateTrashCount();
+        closeTrashPanel();
+    }
+}
+
+// Update count after deletion - wrap the original showUndoToast
+const _origShowUndoToast = showUndoToast;
+showUndoToast = function(count) { _origShowUndoToast(count); updateTrashCount(); };
+
+// Update count on page load
+document.addEventListener('DOMContentLoaded', updateTrashCount);
+
+// Close trash modal on overlay click
+document.getElementById('trash-modal')?.addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeTrashPanel();
     }
 });
 </script>
