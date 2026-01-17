@@ -941,6 +941,13 @@
 <div class="editor-container">
     <!-- Left Action Sidebar -->
     <aside class="left-sidebar">
+        <a href="{{ url_for('dashboard.index') }}" class="sidebar-btn" title="Back to Dashboard">
+            <span class="icon">←</span>
+            <span class="label">Back</span>
+        </a>
+
+        <div class="sidebar-divider"></div>
+
         <button class="sidebar-btn"
                 hx-post="/api/book/{{ book.slug }}/save"
                 hx-swap="none"
