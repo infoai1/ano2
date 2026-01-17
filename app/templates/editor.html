@@ -3,61 +3,227 @@
 {% block title %}{{ book.title }} - Editor{% endblock %}
 
 {% block header %}
-<header class="header">
-    <div>
+<header class="header header-minimal">
+    <div class="header-left">
+        <a href="{{ url_for('dashboard.index') }}" class="back-link" title="Back to Dashboard">
+            <span class="back-arrow">←</span>
+            <span class="back-text">Dashboard</span>
+        </a>
+    </div>
+    <div class="header-center">
         <h1>{{ book.title }}</h1>
         <span class="book-meta">by {{ book.author or 'Unknown' }}</span>
     </div>
-    <nav>
-        <a href="{{ url_for('dashboard.index') }}">Dashboard</a>
-        <a href="{{ url_for('editor.groups_view', slug=book.slug) }}" class="btn btn-secondary">Groups</a>
-        <a href="{{ url_for('editor.paragraphs_view', slug=book.slug) }}" class="btn btn-secondary">Paragraphs</a>
-        <button class="btn" hx-post="/api/book/{{ book.slug }}/save" hx-swap="none" hx-indicator="#save-indicator">
-            Save
-        </button>
-        <span id="save-indicator" class="htmx-indicator">Saving...</span>
-        <div class="dropdown" style="display:inline-block; position:relative;">
-            <button class="btn btn-secondary dropdown-toggle" onclick="this.nextElementSibling.classList.toggle('show')">
-                Export ▾
+    <div class="header-right">
+        <div class="user-dropdown">
+            <button class="user-btn" onclick="this.nextElementSibling.classList.toggle('show')">
+                <span class="user-icon">👤</span>
+                <span class="user-name">{{ current_user.username or 'User' }}</span>
+                <span class="dropdown-arrow">▾</span>
             </button>
-            <div class="dropdown-menu">
-                <a href="/api/book/{{ book.slug }}/export/book-json">Book JSON</a>
-                <a href="/api/book/{{ book.slug }}/export/lightrag">LightRAG JSON</a>
+            <div class="dropdown-menu user-menu">
+                <a href="{{ url_for('auth.logout') }}">Logout</a>
             </div>
         </div>
-        <div class="dropdown" style="display:inline-block; position:relative;">
-            <button class="btn btn-accent dropdown-toggle" onclick="this.nextElementSibling.classList.toggle('show')">
-                Extract ▾
-            </button>
-            <div class="dropdown-menu">
-                <a href="#" onclick="extractConcepts(10); return false;">Extract 10</a>
-                <a href="#" onclick="extractConcepts(50); return false;">Extract 50</a>
-                <a href="#" onclick="extractConcepts(999); return false;">Extract All</a>
-            </div>
-        </div>
-        <a href="{{ url_for('auth.logout') }}">Logout</a>
-    </nav>
+    </div>
 </header>
 {% endblock %}
 
 {% block extra_css %}
 <style>
-    .editor-container {
-        display: grid;
-        grid-template-columns: 250px 1fr;
-        gap: 2rem;
-        min-height: calc(100vh - 120px);
+    /* Override container for full-width editor */
+    .container {
+        max-width: none;
+        padding: 0;
     }
 
-    .sidebar {
+    /* Minimal header styles */
+    .header-minimal {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        padding: 0.75rem 1.5rem;
+    }
+
+    .header-left {
+        justify-self: start;
+    }
+
+    .header-center {
+        justify-self: center;
+        text-align: center;
+    }
+
+    .header-center h1 {
+        font-size: 1.25rem;
+        margin: 0;
+    }
+
+    .header-right {
+        justify-self: end;
+    }
+
+    .back-link {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: var(--secondary);
+        text-decoration: none;
+        font-weight: 500;
+    }
+
+    .back-link:hover {
+        opacity: 0.8;
+    }
+
+    .back-arrow {
+        font-size: 1.2rem;
+    }
+
+    .user-dropdown {
+        position: relative;
+    }
+
+    .user-btn {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.2);
+        color: white;
+        padding: 0.4rem 0.75rem;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.9rem;
+    }
+
+    .user-btn:hover {
+        background: rgba(255,255,255,0.2);
+    }
+
+    .user-icon {
+        font-size: 1rem;
+    }
+
+    .user-menu {
+        right: 0;
+        top: 100%;
+        margin-top: 0.25rem;
+    }
+
+    /* 3-column editor layout */
+    .editor-container {
+        display: grid;
+        grid-template-columns: 70px 1fr 250px;
+        gap: 1rem;
+        min-height: calc(100vh - 80px);
+        padding: 0;
+    }
+
+    /* Left action sidebar */
+    .left-sidebar {
+        background: white;
+        border-right: 1px solid var(--border);
+        padding: 1rem 0.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        position: sticky;
+        top: 0;
+        height: calc(100vh - 80px);
+        overflow-y: auto;
+    }
+
+    .sidebar-btn {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.75rem 0.5rem;
+        border: none;
+        background: transparent;
+        color: var(--text);
+        cursor: pointer;
+        border-radius: 8px;
+        font-size: 0.7rem;
+        text-decoration: none;
+        transition: background 0.15s;
+    }
+
+    .sidebar-btn:hover {
+        background: var(--background);
+    }
+
+    .sidebar-btn.active {
+        background: #e0f2fe;
+        color: var(--primary);
+    }
+
+    .sidebar-btn .icon {
+        font-size: 1.25rem;
+    }
+
+    .sidebar-btn .label {
+        font-weight: 500;
+    }
+
+    .sidebar-divider {
+        height: 1px;
+        background: var(--border);
+        margin: 0.5rem 0;
+    }
+
+    /* Sidebar dropdown */
+    .sidebar-dropdown {
+        position: relative;
+    }
+
+    .sidebar-dropdown-menu {
+        display: none;
+        position: absolute;
+        left: 100%;
+        top: 0;
         background: white;
         border: 1px solid var(--border);
-        border-radius: 8px;
+        border-radius: 4px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        min-width: 140px;
+        z-index: 100;
+        margin-left: 0.25rem;
+    }
+
+    .sidebar-dropdown:hover .sidebar-dropdown-menu,
+    .sidebar-dropdown-menu:hover {
+        display: block;
+    }
+
+    .sidebar-dropdown-menu a {
+        display: block;
+        padding: 0.5rem 1rem;
+        color: var(--text);
+        text-decoration: none;
+        font-size: 0.85rem;
+    }
+
+    .sidebar-dropdown-menu a:hover {
+        background: var(--background);
+    }
+
+    /* Save indicator */
+    .save-indicator {
+        font-size: 0.65rem;
+        color: #666;
+        text-align: center;
+    }
+
+    /* Right sidebar (chapters/TOC) */
+    .sidebar {
+        background: white;
+        border-left: 1px solid var(--border);
         padding: 1rem;
         position: sticky;
-        top: 1rem;
-        height: fit-content;
-        max-height: calc(100vh - 140px);
+        top: 0;
+        height: calc(100vh - 80px);
         overflow-y: auto;
     }
 
@@ -542,40 +708,117 @@
         margin: 1rem 0;
         font-size: 0.9rem;
     }
+
+    /* Responsive design */
+    @media (max-width: 1024px) {
+        .editor-container {
+            grid-template-columns: 60px 1fr 200px;
+        }
+
+        .sidebar-btn .label {
+            display: none;
+        }
+
+        .sidebar-btn {
+            padding: 0.5rem;
+        }
+
+        .left-sidebar {
+            padding: 0.5rem 0.25rem;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .editor-container {
+            grid-template-columns: 50px 1fr;
+        }
+
+        .sidebar {
+            display: none;
+        }
+
+        .header-minimal {
+            grid-template-columns: auto 1fr auto;
+            padding: 0.5rem 1rem;
+        }
+
+        .header-center h1 {
+            font-size: 1rem;
+        }
+
+        .book-meta {
+            display: none;
+        }
+
+        .back-text {
+            display: none;
+        }
+
+        .user-name {
+            display: none;
+        }
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="editor-container">
-    <aside class="sidebar">
-        <h2>Chapters</h2>
-        <ul class="chapter-list">
-            {% for item in chapters_data %}
-            <li>
-                <a href="#chapter-{{ item.chapter.id }}">{{ item.chapter.title or 'Chapter ' ~ loop.index }}</a>
-                <span class="chapter-para-count">({{ item.paragraphs|length }})</span>
-            </li>
-            {% else %}
-            <li class="empty-state">No chapters</li>
-            {% endfor %}
-        </ul>
-
-        <h2 style="margin-top: 1.5rem;">Versions</h2>
-        <button class="btn btn-small"
-                hx-post="/api/book/{{ book.slug }}/version"
-                hx-swap="afterend"
-                hx-target="#version-list"
-                style="margin-bottom: 0.5rem; width: 100%;">
-            Create Version
+    <!-- Left Action Sidebar -->
+    <aside class="left-sidebar">
+        <button class="sidebar-btn"
+                hx-post="/api/book/{{ book.slug }}/save"
+                hx-swap="none"
+                hx-indicator=".save-indicator"
+                title="Save changes">
+            <span class="icon">💾</span>
+            <span class="label">Save</span>
         </button>
-        <div id="version-list"
-             hx-get="/api/book/{{ book.slug }}/versions"
-             hx-trigger="load"
-             hx-swap="innerHTML">
-            Loading versions...
+        <span class="save-indicator htmx-indicator">Saving...</span>
+
+        <div class="sidebar-dropdown">
+            <button class="sidebar-btn" title="Export book">
+                <span class="icon">📤</span>
+                <span class="label">Export</span>
+            </button>
+            <div class="sidebar-dropdown-menu">
+                <a href="/api/book/{{ book.slug }}/export/book-json">Book JSON</a>
+                <a href="/api/book/{{ book.slug }}/export/lightrag">LightRAG JSON</a>
+            </div>
         </div>
+
+        <div class="sidebar-dropdown">
+            <button class="sidebar-btn" title="Extract concepts with AI">
+                <span class="icon">🔍</span>
+                <span class="label">Extract</span>
+            </button>
+            <div class="sidebar-dropdown-menu">
+                <a href="#" onclick="extractConcepts(10); return false;">Extract 10</a>
+                <a href="#" onclick="extractConcepts(50); return false;">Extract 50</a>
+                <a href="#" onclick="extractConcepts(999); return false;">Extract All</a>
+            </div>
+        </div>
+
+        <div class="sidebar-divider"></div>
+
+        <a href="{{ url_for('editor.groups_view', slug=book.slug) }}" class="sidebar-btn" title="View groups">
+            <span class="icon">📋</span>
+            <span class="label">Groups</span>
+        </a>
+
+        <a href="{{ url_for('editor.paragraphs_view', slug=book.slug) }}" class="sidebar-btn" title="View all paragraphs">
+            <span class="icon">¶</span>
+            <span class="label">Paras</span>
+        </a>
+
+        <div class="sidebar-divider"></div>
+
+        <button class="sidebar-btn" onclick="toggleVersionsPanel()" title="Versions">
+            <span class="icon">🕐</span>
+            <span class="label">Versions</span>
+        </button>
     </aside>
 
+    <!-- Main Content Area -->
     <div class="content-area">
         {% for item in chapters_data %}
         <section class="chapter-section" id="chapter-{{ item.chapter.id }}">
@@ -651,6 +894,38 @@
         </div>
         {% endfor %}
     </div>
+
+    <!-- Right Sidebar (Chapters/TOC) -->
+    <aside class="sidebar">
+        <h2>Chapters</h2>
+        <ul class="chapter-list">
+            {% for item in chapters_data %}
+            <li>
+                <a href="#chapter-{{ item.chapter.id }}">{{ item.chapter.title or 'Chapter ' ~ loop.index }}</a>
+                <span class="chapter-para-count">({{ item.paragraphs|length }})</span>
+            </li>
+            {% else %}
+            <li class="empty-state">No chapters</li>
+            {% endfor %}
+        </ul>
+
+        <div id="versions-panel" style="display: none;">
+            <h2 style="margin-top: 1.5rem;">Versions</h2>
+            <button class="btn btn-small"
+                    hx-post="/api/book/{{ book.slug }}/version"
+                    hx-swap="afterend"
+                    hx-target="#version-list"
+                    style="margin-bottom: 0.5rem; width: 100%;">
+                Create Version
+            </button>
+            <div id="version-list"
+                 hx-get="/api/book/{{ book.slug }}/versions"
+                 hx-trigger="load"
+                 hx-swap="innerHTML">
+                Loading versions...
+            </div>
+        </div>
+    </aside>
 </div>
 
 <div id="toast-container"></div>
@@ -673,6 +948,16 @@ function showToast(message, type = 'success') {
     toast.textContent = message;
     container.appendChild(toast);
     setTimeout(() => toast.remove(), 3000);
+}
+
+// Toggle versions panel visibility
+function toggleVersionsPanel() {
+    const panel = document.getElementById('versions-panel');
+    if (panel.style.display === 'none') {
+        panel.style.display = 'block';
+    } else {
+        panel.style.display = 'none';
+    }
 }
 
 // Toggle reference type fields
